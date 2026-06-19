@@ -209,9 +209,18 @@ def _image_cache_key(
 # ---------------------------------------------------------------------------
 
 
+def _normalise_enum_str(val: str) -> str:
+    """Normalise model output to match enum values.
+
+    Gemini sometimes returns "rear bumper", "rear-bumper" or "REAR_BUMPER".
+    All normalise to "rear_bumper".
+    """
+    return str(val).strip().lower().replace(" ", "_").replace("-", "_")
+
+
 def _safe_enum(enum_cls: type, val: Any, default: Any) -> Any:
     try:
-        return enum_cls(val)
+        return enum_cls(_normalise_enum_str(str(val)))
     except (ValueError, TypeError):
         return default
 
@@ -221,10 +230,11 @@ def _safe_enum_list(enum_cls: type, vals: Any) -> list:
         return []
     result = []
     for v in vals:
+        normalised = _normalise_enum_str(str(v))
         try:
-            result.append(enum_cls(v))
+            result.append(enum_cls(normalised))
         except (ValueError, TypeError):
-            pass
+            logger.debug("Enum coercion failed: %s(%r) -> skipped", enum_cls.__name__, v)
     return result
 
 
@@ -250,30 +260,74 @@ def _coerce_per_image(
     height: int | None,
     blur_score: float | None,
 ) -> PerImageAnalysis:
-    """Coerce a parsed VLM dict into a validated PerImageAnalysis."""
+    """Coerce a parsed VLM dict into a validated PerImageAnalysis.
+
+    Normalises all enum strings (spaces/dashes → underscores, lowercase)
+    before coercion to tolerate minor model output variations.
+    Logs raw response fields at DEBUG level for diagnostics.
+    """
+    logger.debug(
+        "VLM raw fields for %s: object_present=%r visible_parts=%r "
+        "visible_issues=%r quality_flags=%r supports_claim=%r confidence=%r severity=%r",
+        image_id,
+        data.get("object_present"),
+        data.get("visible_parts"),
+        data.get("visible_issues"),
+        data.get("quality_flags"),
+        data.get("supports_claim"),
+        data.get("confidence"),
+        data.get("severity"),
+    )
+
     quality_flags = list(preflight_flags)
-    vlm_flags = _safe_enum_list(RiskFlag, data.get("quality_flags", []))
-    # Merge preflight and VLM flags, dedup
+
+    # Coerce VLM quality flags — skip bare "none" (not a real flag)
+    raw_flags = data.get("quality_flags", []) or []
+    vlm_flags = _safe_enum_list(RiskFlag, [
+        f for f in raw_flags
+        if _normalise_enum_str(str(f)) not in ("none", "")
+    ])
     for f in vlm_flags:
         if f not in quality_flags:
             quality_flags.append(f)
+
+    readable = bool(data.get("readable", True))
+    object_present = data.get("object_present")  # may be True/False/None
+
+    visible_parts  = _safe_enum_list(ObjectPart, data.get("visible_parts",  []))
+    visible_issues = _safe_enum_list(IssueType,  data.get("visible_issues", []))
+
+    confidence = float(data.get("confidence", 0.0))
+    severity   = _safe_enum(Severity, data.get("severity", "unknown"), Severity.UNKNOWN)
+    supports   = bool(data.get("supports_claim", False))
+    description = str(data.get("description", data.get("step1_observations", "")))
+
+    logger.debug(
+        "Coerced %s: readable=%s object_present=%s parts=%s issues=%s "
+        "supports=%s confidence=%.2f severity=%s flags=%s",
+        image_id, readable, object_present,
+        [p.value for p in visible_parts],
+        [i.value for i in visible_issues],
+        supports, confidence, severity,
+        [f.value for f in quality_flags],
+    )
 
     return PerImageAnalysis(
         image_id=image_id,
         image_path=image_path,
         file_exists=True,
-        readable=bool(data.get("readable", True)),
+        readable=readable,
         width=width,
         height=height,
         blur_score=blur_score,
-        object_present=data.get("object_present"),  # may be None
-        visible_parts=_safe_enum_list(ObjectPart, data.get("visible_parts", [])),
-        visible_issues=_safe_enum_list(IssueType, data.get("visible_issues", [])),
+        object_present=object_present,
+        visible_parts=visible_parts,
+        visible_issues=visible_issues,
         quality_flags=quality_flags,
-        description=str(data.get("description", "")),
-        confidence=float(data.get("confidence", 0.0)),
-        severity=_safe_enum(Severity, data.get("severity"), Severity.UNKNOWN),
-        supports_claim=bool(data.get("supports_claim", False)),
+        description=description,
+        confidence=confidence,
+        severity=severity,
+        supports_claim=supports,
     )
 
 
@@ -748,7 +802,11 @@ class VisionReviewAgent:
 
         # --- Step 3: VLM call (if model service available)
         if self._model_service is None:
-            logger.debug("No model service configured; returning preflight-only result for %s", image_id)
+            logger.info(
+                "PREFLIGHT-ONLY: No model service configured for %s. "
+                "Set MODEL_PROVIDER + API key to enable vision analysis.",
+                image_id,
+            )
             return self._preflight_only_result(
                 image_id, path, preflight_flags, width, height, blur,
                 claim_object, claimed_part, claimed_issue,
@@ -757,6 +815,11 @@ class VisionReviewAgent:
         raw = self._call_vlm(image_id, path, image_bytes, claim_object, claimed_part, claimed_issue)
 
         if raw is None:
+            logger.warning(
+                "VLM returned None for %s — all provider tiers failed. "
+                "Falling back to preflight-only result.",
+                image_id,
+            )
             # VLM failed — return conservative preflight-only result
             return self._preflight_only_result(
                 image_id, path,
@@ -764,6 +827,9 @@ class VisionReviewAgent:
                 width, height, blur,
                 claim_object, claimed_part, claimed_issue,
             )
+
+        logger.info("VLM response received for %s: length=%d preview=%r",
+                    image_id, len(str(raw)), str(raw)[:120])
 
         # --- Step 4: parse, store in cache, return
         try:
