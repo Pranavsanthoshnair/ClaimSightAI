@@ -561,9 +561,18 @@ else:
     )
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
-tab_review, tab_results, tab_trace = st.tabs(
-    ["⬡  Claim Review", "◈  Results", "◉  Decision Trace"]
-)
+import os as _os
+_DEMO_MODE = _os.environ.get("DEMO_MODE", "false").lower() == "true"
+
+if _DEMO_MODE:
+    tab_review, tab_results, tab_trace, tab_debug = st.tabs(
+        ["⬡  Claim Review", "◈  Results", "◉  Decision Trace", "🔬  Debug Pipeline"]
+    )
+else:
+    tab_review, tab_results, tab_trace = st.tabs(
+        ["⬡  Claim Review", "◈  Results", "◉  Decision Trace"]
+    )
+    tab_debug = None
 
 # ═══════════════════════════════════════════════════════════════
 # TAB 1 — CLAIM REVIEW
@@ -927,3 +936,200 @@ with tab_trace:
             Powered by Gemini 2.5 Flash · OpenRouter fallback · Pydantic schemas
           </div>
         </div>""", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════
+# TAB DEBUG (DEMO_MODE only)
+# ═══════════════════════════════════════════════════════════════
+if tab_debug is not None:
+    with tab_debug:
+        st.markdown("""
+        <div style="margin-bottom:1rem">
+          <div style="font-size:1.3rem;font-weight:800;color:#F1F5F9">🔬 Pipeline Debugger</div>
+          <div style="font-size:0.85rem;color:#64748B;margin-top:4px">
+            Full stage-by-stage inspection. Identifies exactly where logic failures occur.
+            Only visible when DEMO_MODE=true.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if "result" not in st.session_state:
+            st.info("Submit a claim in **Claim Review** first to see the debug trace.")
+        else:
+            r = st.session_state["result"]
+            out = r["output"]
+            vision = r["vision"]
+            evidence = r["evidence"]
+            extraction = r["extraction"]
+            img_bytes_map = r.get("img_bytes_map", {})
+
+            # ── Stage A: Claim Extraction ────────────────────────────────
+            with st.expander("🔍 Stage A — Claim Extraction", expanded=True):
+                st.markdown("**Root check: is_multi_part correct?**")
+                mp_color = "red" if extraction.is_multi_part and not extraction.additional_claimed_parts else "green"
+                st.markdown(
+                    f'<span class="chip chip-{mp_color}">is_multi_part = {extraction.is_multi_part}</span> '
+                    f'<span class="chip chip-slate">secondary_parts = {[str(p) for p in extraction.additional_claimed_parts]}</span>',
+                    unsafe_allow_html=True
+                )
+                if extraction.is_multi_part and not extraction.additional_claimed_parts:
+                    st.warning(
+                        "⚠️ **Potential false positive:** is_multi_part=True but no secondary parts identified. "
+                        "This will incorrectly include REQ_GENERAL_MULTI_IMAGE in the evidence evaluation."
+                    )
+
+                c1, c2 = st.columns(2)
+                c1.code(f"""primary_issue:  {extraction.claimed_issue_type}
+primary_part:   {extraction.claimed_object_part}
+confidence:     {extraction.claim_confidence:.2f}
+injection:      {extraction.injection_detected}
+is_multi_part:  {extraction.is_multi_part}""")
+                c2.code(f"""secondary_issues: {[str(i) for i in extraction.additional_claimed_issues]}
+secondary_parts:  {[str(p) for p in extraction.additional_claimed_parts]}
+
+reasoning: {extraction.reasoning[:200]}""")
+
+            # ── Stage B: Vision Review ───────────────────────────────────
+            with st.expander("👁 Stage B — Vision Review", expanded=True):
+                st.markdown("**Root check: what did each image return?**")
+
+                flags_debug = {
+                    "object_visible":      vision.object_visible,
+                    "object_part_visible": vision.object_part_visible,
+                    "issue_visible":       vision.issue_visible,
+                    "valid_image":         vision.valid_image,
+                    "confidence":          f"{vision.confidence:.2f}",
+                    "provider":            r.get("provider", "none"),
+                }
+                for k, v in flags_debug.items():
+                    color = "green" if v is True else "red" if v is False else "slate"
+                    st.markdown(f'<span class="chip chip-{color}">{k} = {v}</span>', unsafe_allow_html=True)
+
+                if vision.per_image:
+                    st.markdown("**Per-image breakdown:**")
+                    for img in vision.per_image:
+                        ok = "green" if img.supports_claim else "red"
+                        st.markdown(
+                            f'<span class="chip chip-{ok}">{img.image_id}</span> '
+                            f'obj_present={img.object_present} | '
+                            f'parts={[p.value for p in img.visible_parts]} | '
+                            f'issues={[i.value for i in img.visible_issues]} | '
+                            f'conf={img.confidence:.2f}',
+                            unsafe_allow_html=True
+                        )
+                        if img.description:
+                            st.caption(f"→ {img.description[:150]}")
+
+                if not r.get("has_model"):
+                    st.error(
+                        "❌ **No VLM configured.** All vision fields are preflight-only. "
+                        "object_visible=False because no model called Gemini. "
+                        "Set GEMINI_API_KEY in secrets to get real results."
+                    )
+
+            # ── Stage C: Evidence Standards ──────────────────────────────
+            with st.expander("📋 Stage C — Evidence Standards Input", expanded=True):
+                from services.evidence_standards_engine import EvidenceStandardsEngine
+                inp = EvidenceStandardsEngine.build_input(
+                    vision_result=vision,
+                    claim_object=str(out.claim_object),
+                    claimed_part=str(out.object_part),
+                    claimed_issue=str(out.issue_type),
+                    is_multi_part=extraction.is_multi_part,
+                )
+                st.code(f"""[INPUT TO EVIDENCE ENGINE]
+claim_object:         {inp.claim_object}
+claimed_part:         {inp.claimed_part}
+claimed_issue:        {inp.claimed_issue}
+is_multi_part:        {inp.is_multi_part}   ← from ClaimExtractionAgent
+object_visible:       {inp.object_visible}
+object_part_visible:  {inp.object_part_visible}
+issue_visible:        {inp.issue_visible}
+valid_image_count:    {inp.valid_image_count}
+all_visible_parts:    {inp.all_visible_parts}
+all_visible_issues:   {inp.all_visible_issues}
+quality_flags:        {inp.quality_flags}""")
+
+                if inp.is_multi_part:
+                    st.warning(
+                        "⚠️ is_multi_part=True → REQ_GENERAL_MULTI_IMAGE is being evaluated. "
+                        "If this is a simple single-part claim, this requirement will fail with "
+                        "'For multi-part claims, at least one image must...' message."
+                    )
+
+                st.markdown("**Per-requirement evaluation:**")
+                for req in evidence.per_requirement:
+                    icon = "✅" if req.satisfied else "❌"
+                    color = "green" if req.satisfied else "red"
+                    st.markdown(
+                        f'{icon} <span class="chip chip-{color}">{req.requirement_id}</span> '
+                        f'*{req.applies_to}*',
+                        unsafe_allow_html=True
+                    )
+                    if not req.satisfied and req.gap_description:
+                        st.caption(f"  Gap: {req.gap_description}")
+
+            # ── Stage D: Decision ────────────────────────────────────────
+            with st.expander("⚖️ Stage D — Decision Service Input", expanded=True):
+                status = str(out.claim_status)
+                rule = (
+                    "Rule 1: no valid images" if not vision.valid_image else
+                    "Rule 2: evidence not met" if not evidence.evidence_standard_met else
+                    "Rule 3: object not visible" if not vision.object_visible and not vision.object_part_visible else
+                    "Rule 4: part not visible" if not vision.object_part_visible else
+                    "Rule 5: SUPPORTED" if vision.issue_visible and vision.supporting_image_ids else
+                    "Rule 6: CONTRADICTED" if vision.object_part_visible and not vision.issue_visible else
+                    "Rule 7: fallback NEI"
+                )
+                st.code(f"""[DECISION INPUTS]
+valid_image:           {vision.valid_image}
+evidence_standard_met: {evidence.evidence_standard_met}
+object_visible:        {vision.object_visible}
+object_part_visible:   {vision.object_part_visible}
+issue_visible:         {vision.issue_visible}
+supporting_image_ids:  {vision.supporting_image_ids}
+
+[RULE FIRED]
+{rule}
+
+[FINAL OUTPUT]
+claim_status:     {out.claim_status}
+issue_type:       {out.issue_type}
+object_part:      {out.object_part}
+severity:         {out.severity}
+risk_flags:       {out.risk_flags}
+evidence_met:     {out.evidence_standard_met}""")
+
+            # ── Root cause summary ───────────────────────────────────────
+            section_title("🎯", "Root Cause Analysis")
+
+            issues_found = []
+            if not r.get("has_model"):
+                issues_found.append("NO_MODEL_CONFIGURED: All vision outputs are preflight defaults. Connect Gemini API.")
+            if extraction.is_multi_part and not extraction.additional_claimed_parts:
+                issues_found.append(
+                    "FALSE_MULTI_PART: is_multi_part=True with no secondary parts. "
+                    "ClaimExtractionAgent found multi-part keywords but no actual secondary damage. "
+                    "This incorrectly triggers REQ_GENERAL_MULTI_IMAGE."
+                )
+            if not vision.object_visible and vision.valid_image:
+                issues_found.append(
+                    "OBJECT_INVISIBLE_DESPITE_VALID_IMAGE: VLM returned object_present=None or False. "
+                    "Check per-image analysis above for the raw VLM response."
+                )
+            if evidence.sufficiency_level == "not_met" and not issues_found:
+                issues_found.append(
+                    f"EVIDENCE_NOT_MET: {evidence.evidence_standard_met_reason}"
+                )
+
+            if issues_found:
+                for issue in issues_found:
+                    cat = issue.split(":")[0]
+                    detail = issue[len(cat)+1:].strip()
+                    st.markdown(f"""
+                    <div class="cs-card" style="border-color:#EF4444">
+                      <div style="color:#EF4444;font-weight:700;font-size:0.8rem">{cat}</div>
+                      <div style="color:#94A3B8;font-size:0.82rem;margin-top:4px">{detail}</div>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.success("No root cause issues detected. Pipeline logic appears correct.")

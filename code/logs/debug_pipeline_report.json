@@ -1,0 +1,157 @@
+{
+  "claim_id": "debug",
+  "claim_object": "car",
+  "image_paths": [
+    "C:\\Users\\PRANAV\\hackerrank-orchestrate-june26\\dataset\\images\\sample\\case_001\\img_1.jpg"
+  ],
+  "claim_extraction": {
+    "raw_claim": "Customer: My rear bumper has a dent. Photos attached.",
+    "claim_object": "car",
+    "primary_issue": "dent",
+    "primary_part": "rear_bumper",
+    "secondary_issues": [],
+    "secondary_parts": [],
+    "is_multi_part": false,
+    "injection_detected": false,
+    "confidence": 0.85,
+    "reasoning": "Fast-path extraction: issue='dent' via keyword match, part='rear_bumper' via keyword match for object 'car'. Multi-part signal=no. Injection=none.",
+    "fast_path_used": true
+  },
+  "vision_review": {
+    "provider_used": "gemini",
+    "fallback_used": false,
+    "object_visible": false,
+    "object_part_visible": false,
+    "issue_visible": false,
+    "issue_type": "unknown",
+    "object_part": "unknown",
+    "severity": "unknown",
+    "supporting_image_ids": [],
+    "confidence": 0.0,
+    "quality_flags": [
+      "manual_review_required"
+    ],
+    "reasoning": "No image directly supports the claimed damage.",
+    "per_image": [
+      {
+        "image_id": "img_1",
+        "image_path": "C:\\Users\\PRANAV\\hackerrank-orchestrate-june26\\dataset\\images\\sample\\case_001\\img_1.jpg",
+        "file_exists": true,
+        "readable": true,
+        "width": 600,
+        "height": 400,
+        "blur_score": 662.8586203278045,
+        "object_present": null,
+        "visible_parts": [],
+        "visible_issues": [],
+        "quality_flags": [
+          "manual_review_required"
+        ],
+        "description": "Image readable; visual content requires model inspection.",
+        "confidence": 0.0,
+        "severity": "unknown",
+        "supports_claim": false,
+        "vlm_called": true,
+        "raw_vlm_response_preview": ""
+      }
+    ],
+    "aggregation_notes": [
+      "object_visible=False. VLM object_present votes: [None]",
+      "object_part_visible=False. Visible parts across all images: []",
+      "issue_visible=False. Visible issues across all images: []"
+    ]
+  },
+  "evidence_standard": {
+    "inp_claim_object": "car",
+    "inp_claimed_part": "rear_bumper",
+    "inp_claimed_issue": "dent",
+    "inp_is_multi_part": false,
+    "inp_object_visible": false,
+    "inp_object_part_visible": false,
+    "inp_issue_visible": false,
+    "inp_valid_image_count": 1,
+    "inp_total_image_count": 1,
+    "inp_supporting_image_ids": [],
+    "inp_quality_flags": [
+      "manual_review_required"
+    ],
+    "inp_all_visible_parts": [],
+    "inp_all_visible_issues": [],
+    "selected_requirements": [
+      "REQ_GENERAL_OBJECT_PART",
+      "REQ_CAR_BODY_PANEL",
+      "REQ_CAR_IDENTITY_OR_SIDE",
+      "REQ_REVIEW_TRUST"
+    ],
+    "requirement_evaluations": [
+      {
+        "requirement_id": "REQ_GENERAL_OBJECT_PART",
+        "applies_to": "general claim review",
+        "satisfied": false,
+        "gap_description": "The claimed car is not visible in any image.",
+        "satisfying_image_ids": []
+      },
+      {
+        "requirement_id": "REQ_CAR_BODY_PANEL",
+        "applies_to": "dent or scratch",
+        "satisfied": false,
+        "gap_description": "Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none).",
+        "satisfying_image_ids": []
+      },
+      {
+        "requirement_id": "REQ_CAR_IDENTITY_OR_SIDE",
+        "applies_to": "vehicle identity or orientation",
+        "satisfied": false,
+        "gap_description": "Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none).",
+        "satisfying_image_ids": []
+      },
+      {
+        "requirement_id": "REQ_REVIEW_TRUST",
+        "applies_to": "reviewability",
+        "satisfied": true,
+        "gap_description": "",
+        "satisfying_image_ids": []
+      }
+    ],
+    "sufficiency_level": "partially_met",
+    "evidence_standard_met": false,
+    "evidence_standard_met_reason": "1/4 evidence requirement(s) satisfied. Gaps: The claimed car is not visible in any image. Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none).",
+    "satisfied_requirements": [
+      "REQ_REVIEW_TRUST"
+    ],
+    "unsatisfied_requirements": [
+      "REQ_GENERAL_OBJECT_PART",
+      "REQ_CAR_BODY_PANEL",
+      "REQ_CAR_IDENTITY_OR_SIDE"
+    ],
+    "missing_evidence": [
+      "The claimed car is not visible in any image.",
+      "Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none).",
+      "Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none)."
+    ],
+    "confidence": 0.15,
+    "diagnosis": "The EvidenceStandardsEngine received object_visible=False, object_part_visible=False. These come from VisionReviewResult which had: object_visible=False, object_part_visible=False."
+  },
+  "decision": {
+    "claim_status_from_evidence": false,
+    "vision_valid_image": true,
+    "vision_object_visible": false,
+    "vision_object_part_visible": false,
+    "vision_issue_visible": false,
+    "vision_supporting_ids": [],
+    "evidence_standard_met": false,
+    "rule_fired": "Rule 2: evidence standard not met",
+    "extra_flags_added": [],
+    "claim_status": "not_enough_information",
+    "issue_type": "dent",
+    "object_part": "rear_bumper",
+    "severity": "medium",
+    "risk_flags": "manual_review_required",
+    "evidence_standard_met_reason": "1/4 evidence requirement(s) satisfied. Gaps: The claimed car is not visible in any image. Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none).",
+    "claim_status_justification": "1/4 evidence requirement(s) satisfied. Gaps: The claimed car is not visible in any image. Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none). Missing: The claimed car is not visible in any image.; Car not visible in images. Claimed part 'rear bumper' not visible (visible: none). Claimed damage 'dent' not visible (visible: none)."
+  },
+  "root_cause_flags": [
+    "OBJECT_NOT_VISIBLE_IN_ENGINE: The EvidenceStandardsEngine received object_visible=False, object_part_visible=False. These come from VisionReviewResult which had: object_visible=False, object_part_visible=False."
+  ],
+  "pipeline_summary": "ROOT CAUSE IDENTIFIED: OBJECT_NOT_VISIBLE_IN_ENGINE: The EvidenceStandardsEngine received object_visible=False, object_part_visible=False. These come from VisionReviewResult which had: object_visible=False, object_part_visible=False."
+}
