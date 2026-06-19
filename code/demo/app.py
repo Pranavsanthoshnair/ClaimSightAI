@@ -373,13 +373,13 @@ def card(title: str, body: str):
     </div>""", unsafe_allow_html=True)
 
 
-def kpi(label: str, value: str, sub: str = "", color: str = "indigo"):
-    return f"""
-    <div class="kpi-card {color}">
-      <div class="kpi-label">{label}</div>
-      <div class="kpi-value">{value}</div>
-      {'<div class="kpi-sub">' + sub + '</div>' if sub else ''}
-    </div>"""
+def kpi(label: str, value: str, sub: str = "", color: str = "indigo") -> str:
+    inner = f'<div class="kpi-sub">{sub}</div>' if sub else ""
+    return (f'<div class="kpi-card {color}">'
+            f'<div class="kpi-label">{label}</div>'
+            f'<div class="kpi-value">{value}</div>'
+            f'{inner}</div>')
+
 
 
 def chip(text: str, color: str = "slate") -> str:
@@ -935,6 +935,7 @@ if "_initialized" not in st.session_state:
     st.session_state["_focus_results"] = False
     st.session_state["_focus_trace"] = False
     st.session_state["_last_analysis_ts"] = 0
+    st.session_state.setdefault("debug_mode", False)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 import os as _os
@@ -1188,17 +1189,40 @@ with tab_results:
         # Human-friendly sufficiency label
         _suf_label = _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), str(evidence.sufficiency_level).replace("_"," ").title())
         kpis_html = '<div class="kpi-grid">'
-        kpis_html += kpi("Decision",        _VERDICT_LABELS.get(status, status.replace("_"," ").title()), "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
-        kpis_html += kpi("Damage Found",    str(out.issue_type).replace("_", " ").title(), "", "indigo")
-        kpis_html += kpi("Location",        str(out.object_part).replace("_", " ").title(), "", "indigo")
+        kpis_html += kpi("Decision",        _VERDICT_LABELS.get(status, status.replace("_"," ").title()), status if _debug else "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
+        kpis_html += kpi("Damage Found",    str(out.issue_type).replace("_", " ").title(), str(out.issue_type) if _debug else "", "indigo")
+        kpis_html += kpi("Location",        str(out.object_part).replace("_", " ").title(), str(out.object_part) if _debug else "", "indigo")
         kpis_html += kpi("Severity",        str(out.severity).title(),                 "", severity_color)
-        kpis_html += kpi("Evidence Status", _suf_label,                                "", "green" if esm else "red")
+        kpis_html += kpi("Evidence Status", _suf_label, str(evidence.sufficiency_level) if _debug else "", "green" if esm else "red")
         lat_ms = r.get("latency_ms", 0)
         kpis_html += kpi("Latency",         f"{lat_ms}ms" if lat_ms else "—",           "", "indigo")
         if _debug:
             kpis_html += kpi("Confidence",  conf_pct, provider, "indigo")
+            kpis_html += kpi("Risk Flags",  str(out.risk_flags), "", "amber")
+            kpis_html += kpi("Supporting IDs", str(out.supporting_image_ids)[:30], "", "slate")
         kpis_html += '</div>'
         st.markdown(kpis_html, unsafe_allow_html=True)
+
+        # ── Debug raw data expander ────────────────────────────────
+        if _debug:
+            with st.expander("🔬 Raw Output Fields (debug)", expanded=False):
+                st.code(f"""claim_status          = {out.claim_status!r}
+claim_status_justification = {str(out.claim_status_justification)[:300]!r}
+issue_type             = {out.issue_type!r}
+object_part            = {out.object_part!r}
+severity               = {out.severity!r}
+evidence_standard_met  = {out.evidence_standard_met!r}
+evidence_standard_met_reason = {str(out.evidence_standard_met_reason)[:200]!r}
+risk_flags             = {out.risk_flags!r}
+supporting_image_ids   = {out.supporting_image_ids!r}
+valid_image            = {out.valid_image!r}
+confidence             = {vision.confidence!r}
+object_visible         = {vision.object_visible!r}
+object_part_visible    = {vision.object_part_visible!r}
+issue_visible          = {vision.issue_visible!r}
+sufficiency_level      = {evidence.sufficiency_level!r}
+provider               = {provider!r}
+""", language="python")
 
         # ── Evidence assessment ────────────────────────────────────
         section_title("◈", "Evidence Assessment")
