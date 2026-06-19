@@ -86,19 +86,23 @@ def _to_base64(image_bytes: bytes) -> str:
 
 
 def _extract_json(text: str) -> str:
-    """Extract a JSON object from model output that may contain markdown fences.
+    """Extract a JSON object from model output that may contain surrounding prose.
 
     Handles:
-    - Plain JSON: ``{"key": "value"}``
-    - Markdown fenced: ` ```json\\n{...}\\n``` `
-    - Mixed prose with JSON embedded: "Here is the result: {...}"
+    - Plain JSON
+    - Markdown fenced: ```json{...}```
+    - Prose before/after JSON (e.g. Llama two-step responses)
+    - Multiple ``{`` occurrences — tries every one, returns the last valid object
+      (Llama often echoes ``{claim_object}`` before emitting the real JSON block)
 
-    Returns the raw JSON string (unparsed) so the caller can parse it.
-    Raises ValueError if no JSON object is found.
+    Returns the raw JSON string. Raises ValueError if no valid object found.
     """
     text = text.strip()
 
-    # 1. Try parsing as-is (fastest path for clean models)
+    # 0. Strip ANSI/control chars that some models inject
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+
+    # 1. Try as-is (fastest path for clean models)
     try:
         json.loads(text)
         return text
@@ -115,25 +119,36 @@ def _extract_json(text: str) -> str:
         except json.JSONDecodeError:
             pass
 
-    # 3. Find first { ... } block in the text
-    start = text.find("{")
-    if start != -1:
-        # Walk to find matching closing brace
+    # 3. Find ALL { ... } blocks in text, try each one, keep the last valid one.
+    # This handles models that echo template vars like {claim_object} in prose
+    # before outputting the actual JSON block at the end.
+    best_candidate: str | None = None
+    i = 0
+    while i < len(text):
+        if text[i] != "{":
+            i += 1
+            continue
+        # Walk forward tracking brace depth to find the matching closing brace
         depth = 0
-        for i, ch in enumerate(text[start:], start):
-            if ch == "{":
+        for j in range(i, len(text)):
+            if text[j] == "{":
                 depth += 1
-            elif ch == "}":
+            elif text[j] == "}":
                 depth -= 1
                 if depth == 0:
-                    candidate = text[start:i + 1]
+                    candidate = text[i:j + 1]
                     try:
                         json.loads(candidate)
-                        return candidate
+                        best_candidate = candidate  # keep going — later block may be the real one
                     except json.JSONDecodeError:
-                        break
+                        pass
+                    break
+        i += 1
 
-    raise ValueError(f"No valid JSON object found in model response: {text[:200]!r}")
+    if best_candidate is not None:
+        return best_candidate
+
+    raise ValueError(f"No valid JSON object found in model response: {text[:300]!r}")
 
 
 class OpenRouterProvider(BaseVisionProvider):
