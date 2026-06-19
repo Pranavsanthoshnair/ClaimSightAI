@@ -64,11 +64,11 @@ class Settings(BaseModel):
     )
     openrouter_model_secondary: str = Field(
         default_factory=lambda: _env("OPENROUTER_MODEL_SECONDARY",
-                                     "meta-llama/llama-3.2-90b-vision-instruct")
+                                     "meta-llama/llama-3.2-11b-vision-instruct")
     )
     openrouter_model_tertiary: str = Field(
         default_factory=lambda: _env("OPENROUTER_MODEL_TERTIARY",
-                                     "mistralai/pixtral-12b-2409")
+                                     "anthropic/claude-3-haiku")
     )
 
     # ── Groq (text-only reasoning fallback) ──────────────────────────────────

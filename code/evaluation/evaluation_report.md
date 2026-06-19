@@ -7,12 +7,12 @@
 | Metric | Value |
 |--------|-------|
 | Total samples | 20 |
-| Correct predictions (claim_status) | 0 / 20 |
-| claim_status accuracy | 0.1 |
-| claim_status F1 (macro) | 0.0606 |
-| issue_type accuracy | 0.45 |
-| object_part accuracy | 0.7 |
-| evidence_standard_met accuracy | 0.1 |
+| Correct predictions (claim_status) | 6 / 20 |
+| claim_status accuracy | 0.55 |
+| claim_status F1 (macro) | 0.4183 |
+| issue_type accuracy | 0.5 |
+| object_part accuracy | 0.65 |
+| evidence_standard_met accuracy | 0.85 |
 
 ## Per-Field Metrics
 
@@ -20,32 +20,31 @@
 
 | Accuracy | Precision (macro) | Recall (macro) | F1 (macro) |
 |----------|-------------------|----------------|------------|
-| 0.1 | 0.0333 | 0.3333 | 0.0606 |
+| 0.55 | 0.4389 | 0.4641 | 0.4183 |
 
 | Class | Support | Precision | Recall | F1 |
 |-------|---------|-----------|--------|-----|
-| contradicted | 5 | 0.0 | 0.0 | 0.0 |
-| not_enough_information | 2 | 0.1 | 1.0 | 0.1818 |
-| supported | 13 | 0.0 | 0.0 | 0.0 |
+| contradicted | 5 | 0.25 | 0.2 | 0.2222 |
+| not_enough_information | 2 | 0.1667 | 0.5 | 0.25 |
+| supported | 13 | 0.9 | 0.6923 | 0.7826 |
 
 ### issue_type
 
 | Accuracy | Precision (macro) | Recall (macro) | F1 (macro) |
 |----------|-------------------|----------------|------------|
-| 0.45 | 0.3472 | 0.375 | 0.3333 |
+| 0.5 | 0.4879 | 0.5152 | 0.4567 |
 
 | Class | Support | Precision | Recall | F1 |
 |-------|---------|-----------|--------|-----|
 | broken_part | 3 | 1.0 | 0.3333 | 0.5 |
 | crack | 3 | 0.6667 | 0.6667 | 0.6667 |
-| crushed_packaging | 1 | 0.5 | 1.0 | 0.6667 |
-| dent | 3 | 1.0 | 1.0 | 1.0 |
+| crushed_packaging | 1 | 1.0 | 1.0 | 1.0 |
+| dent | 3 | 0.5 | 0.6667 | 0.5714 |
 | glass_shatter | 0 | 0.0 | 0.0 | 0.0 |
-| missing_part | 0 | 0.0 | 0.0 | 0.0 |
-| none | 2 | 0.0 | 0.0 | 0.0 |
-| scratch | 2 | 0.5 | 0.5 | 0.5 |
+| none | 2 | 0.2 | 0.5 | 0.2857 |
+| scratch | 2 | 1.0 | 0.5 | 0.6667 |
 | stain | 1 | 0.0 | 0.0 | 0.0 |
-| torn_packaging | 1 | 0.0 | 0.0 | 0.0 |
+| torn_packaging | 1 | 0.5 | 1.0 | 0.6667 |
 | unknown | 3 | 0.0 | 0.0 | 0.0 |
 | water_damage | 1 | 0.5 | 1.0 | 0.6667 |
 
@@ -53,7 +52,7 @@
 
 | Accuracy | Precision (macro) | Recall (macro) | F1 (macro) |
 |----------|-------------------|----------------|------------|
-| 0.7 | 0.6667 | 0.6389 | 0.6389 |
+| 0.65 | 0.5833 | 0.5833 | 0.5648 |
 
 | Class | Support | Precision | Recall | F1 |
 |-------|---------|-----------|--------|-----|
@@ -62,7 +61,7 @@
 | corner | 1 | 1.0 | 1.0 | 1.0 |
 | door | 1 | 1.0 | 1.0 | 1.0 |
 | front_bumper | 2 | 1.0 | 0.5 | 0.6667 |
-| headlight | 1 | 1.0 | 1.0 | 1.0 |
+| headlight | 1 | 0.0 | 0.0 | 0.0 |
 | hinge | 1 | 0.0 | 0.0 | 0.0 |
 | hood | 0 | 0.0 | 0.0 | 0.0 |
 | keyboard | 1 | 0.5 | 1.0 | 0.6667 |
@@ -71,7 +70,7 @@
 | rear_bumper | 2 | 1.0 | 1.0 | 1.0 |
 | screen | 2 | 0.5 | 0.5 | 0.5 |
 | seal | 2 | 1.0 | 0.5 | 0.6667 |
-| side_mirror | 1 | 1.0 | 1.0 | 1.0 |
+| side_mirror | 1 | 0.5 | 1.0 | 0.6667 |
 | trackpad | 1 | 1.0 | 1.0 | 1.0 |
 | unknown | 1 | 0.0 | 0.0 | 0.0 |
 | windshield | 1 | 1.0 | 1.0 | 1.0 |
@@ -80,21 +79,21 @@
 
 | Accuracy | Precision (macro) | Recall (macro) | F1 (macro) |
 |----------|-------------------|----------------|------------|
-| 0.1 | 0.05 | 0.5 | 0.0909 |
+| 0.85 | 0.6373 | 0.6944 | 0.6571 |
 
 | Class | Support | Precision | Recall | F1 |
 |-------|---------|-----------|--------|-----|
-| false | 2 | 0.1 | 1.0 | 0.1818 |
-| true | 18 | 0.0 | 0.0 | 0.0 |
+| false | 2 | 0.3333 | 0.5 | 0.4 |
+| true | 18 | 0.9412 | 0.8889 | 0.9143 |
 
 ## Confusion Matrix — claim_status
 
 ```
                         supported  contradicted  not_enough_information
 actual \ predicted                                                     
-supported                       0             0                      13
-contradicted                    0             0                       5
-not_enough_information          0             0                       2
+supported                       9             2                       2
+contradicted                    1             1                       3
+not_enough_information          0             1                       1
 ```
 
 ## Failure Analysis
@@ -103,35 +102,36 @@ not_enough_information          0             0                       2
 
 | Rank | Category | Count |
 |------|----------|-------|
-| 1 | `evidence_insufficiency` | 10 |
-| 2 | `object_part_failure` | 5 |
-| 3 | `image_quality_failure` | 3 |
-| 4 | `other_mismatch` | 2 |
+| 1 | `object_part_failure` | 4 |
+| 2 | `issue_type_mismatch` | 3 |
+| 3 | `evidence_insufficiency` | 2 |
+| 4 | `false_contradiction` | 2 |
+| 5 | `image_quality_failure` | 1 |
+| 6 | `claim_status_mismatch` | 1 |
+| 7 | `false_support` | 1 |
 
 ## Accuracy by Object Type
 
-  - **car**: 12.5% (1/8 correct)
-  - **laptop**: 0.0% (0/6 correct)
+  - **car**: 87.5% (7/8 correct)
+  - **laptop**: 50.0% (3/6 correct)
   - **package**: 16.7% (1/6 correct)
 
 ## Strengths
 
-- **object_part** accuracy = 0.7 — strong signal extraction.
+- **evidence_standard_met** accuracy = 0.85 — strong signal extraction.
 
 ## Weaknesses
 
-- **claim_status** accuracy = 0.1 — needs improvement.
-- **issue_type** accuracy = 0.45 — needs improvement.
-- **evidence_standard_met** accuracy = 0.1 — needs improvement.
+- No severe weaknesses detected.
 
 ## Likely Leaderboard Bottlenecks
 
 The following issues are most likely to hurt the leaderboard score based on error analysis:
 
 1. **claim_status accuracy** — the most important output field. Without a VLM, all predictions default to `not_enough_information`. Connecting a vision model will be the single largest accuracy gain.
-1. **evidence insufficiency** (10 cases) — tune evidence standards thresholds or add more supporting-image guidance.
-1. **object part failure** (5 cases) — improve part-matching in ClaimExtractionAgent and vision prompts.
-1. **image quality failure** (3 cases) — improve image quality pre-screening or prompt the VLM to handle low-quality images.
+1. **object part failure** (4 cases) — improve part-matching in ClaimExtractionAgent and vision prompts.
+1. **issue type mismatch** (3 cases) — improve issue_type normalisation in ClaimExtractionAgent.
+1. **evidence insufficiency** (2 cases) — tune evidence standards thresholds or add more supporting-image guidance.
 
 ## Operational Notes
 

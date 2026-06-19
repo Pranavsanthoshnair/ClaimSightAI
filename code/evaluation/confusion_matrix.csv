@@ -1,4 +1,4 @@
 actual \ predicted,supported,contradicted,not_enough_information
-supported,0,0,13
-contradicted,0,0,5
-not_enough_information,0,0,2
+supported,9,2,2
+contradicted,1,1,3
+not_enough_information,0,1,1

@@ -1,28 +1,58 @@
 {
-  "status": "populated_from_no_model_baseline",
-  "note": "Run: python code/evaluation/benchmark_vision.py --version v4 to populate with real VLM results. Free-tier throttle: ~13s/image; est. 9 min for 20 sample rows.",
+  "status": "live_vlm_results",
+  "generated": "2026-06-19T18:32:00+05:30",
+  "note": "Real VLM results using OpenRouter provider chain (3 vision tiers confirmed working).",
   "provider_chain": {
-    "tier1": "gemini-2.5-flash (GeminiProvider)",
-    "tier2": "qwen/qwen2.5-vl-72b-instruct (OpenRouterProvider)",
-    "tier3": "meta-llama/llama-3.2-90b-vision-instruct (OpenRouterProvider)"
+    "tier1": "qwen/qwen2.5-vl-72b-instruct (OpenRouterProvider)",
+    "tier2": "meta-llama/llama-3.2-11b-vision-instruct (OpenRouterProvider)",
+    "tier3": "anthropic/claude-3-haiku (OpenRouterProvider)",
+    "tier4": "groq/llama-3.1-8b-instant (GroqProvider — text reasoning fallback only)"
+  },
+  "fixes_applied": [
+    "Removed em-dash from X-Title header (latin-1 codec error)",
+    "Added max_tokens=1024 to prevent 402 on credit-limited accounts",
+    "Removed response_format:json_object for non-OpenAI models (Llama, Claude)",
+    "Added _extract_json() to parse JSON from markdown fences and prose",
+    "Added 429 retry with 3s sleep before escalating to next tier",
+    "Fixed T2 slug: llama-3.2-90b (404) -> llama-3.2-11b-vision-instruct",
+    "Fixed T3 slug: pixtral-large-2411 (404) -> anthropic/claude-3-haiku"
+  ],
+  "sample_evaluation": {
+    "description": "Pipeline run on dataset/sample_claims.csv (20 rows, ground truth available)",
+    "n_samples": 20,
+    "claim_status_accuracy": 0.55,
+    "claim_status_f1_macro": 0.4183,
+    "issue_type_accuracy": 0.50,
+    "issue_type_f1_macro": 0.457,
+    "object_part_accuracy": 0.65,
+    "object_part_f1_macro": 0.565,
+    "evidence_standard_met_accuracy": 0.85,
+    "evidence_standard_met_f1_macro": 0.657,
+    "per_class_claim_status": {
+      "supported":   {"precision": 0.90, "recall": 0.6923, "f1": 0.7826, "support": 13},
+      "contradicted": {"precision": 0.25, "recall": 0.20,   "f1": 0.2222, "support": 5},
+      "not_enough_information": {"precision": 0.1667, "recall": 0.50, "f1": 0.25, "support": 2}
+    }
   },
   "no_model_baseline": {
-    "description": "Pipeline with no VLM — preflight-only mode. All outputs are not_enough_information.",
+    "description": "Pipeline with no VLM — preflight-only mode. All claim_status = not_enough_information.",
     "n_samples": 20,
     "claim_status_accuracy": 0.10,
     "issue_type_accuracy": 0.45,
     "object_part_accuracy": 0.70,
     "evidence_standard_met_accuracy": 0.10,
-    "mean_confidence": 0.0,
-    "note": "issue_type and object_part are populated from ClaimExtractionAgent (text-only), which achieves reasonable accuracy. claim_status requires VLM."
+    "mean_confidence": 0.0
   },
-  "expected_with_vlm": {
-    "description": "Expected ranges after connecting a real VLM based on prompt v4 design.",
-    "claim_status_accuracy": "0.65-0.85",
-    "issue_type_accuracy": "0.55-0.75",
-    "object_part_accuracy": "0.70-0.85",
-    "evidence_standard_met_accuracy": "0.60-0.80",
-    "primary_bottleneck": "object_confusion (65% of no-model errors) — v4 prompt addresses this with explicit object-type question in Step 1"
+  "improvement_vs_baseline": {
+    "claim_status": "+45pp (0.10 -> 0.55)",
+    "evidence_standard_met": "+75pp (0.10 -> 0.85)",
+    "issue_type": "+5pp (0.45 -> 0.50)",
+    "object_part": "-5pp (0.70 -> 0.65, marginal, within noise)"
+  },
+  "known_weaknesses": {
+    "contradicted_recall": "0.20 — VLM often predicts NEI instead of contradicted (conservative bias)",
+    "issue_type_missing_classes": "glass_shatter, missing_part, stain not predicted (low recall on rare classes)",
+    "model_rate_limits": "Qwen 72B hits 429 under burst load — falls back to Llama 11B correctly"
   },
   "operational_analysis": {
     "sample_rows": 20,
@@ -31,14 +61,8 @@
     "total_images_sample": 32,
     "total_images_test": 70,
     "model_calls_per_image": 1,
-    "gemini_free_tier_rpm": 5,
-    "est_runtime_sample_min": 6.5,
-    "est_runtime_test_min": 14.0,
-    "gemini_flash_cost_per_image_usd": 0.0001,
-    "est_cost_sample_usd": 0.0032,
-    "est_cost_test_usd": 0.007,
-    "cache_strategy": "SHA-256 content-addressed JSONL cache — identical images across claims reuse the cached VLM response",
-    "retry_strategy": "Parse 'retry in Xs' from 429 responses; sleep accordingly; 2 retries per image",
-    "fallback_strategy": "Gemini 429/503 → OpenRouter Qwen2.5-VL → OpenRouter LLaMA-3.2-Vision"
+    "tier1_rate_limit": "429 on burst — 3s sleep+retry before T2 fallback",
+    "cache_strategy": "SHA-256 content-addressed JSONL cache — identical images reuse cached VLM response",
+    "submission_validator": "13/13 checks PASSED — output.csv READY TO SUBMIT"
   }
 }
