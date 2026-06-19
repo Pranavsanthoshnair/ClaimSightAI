@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 # ── Path bootstrap — works locally AND on Streamlit Cloud ───────────────────
@@ -235,6 +236,46 @@ html, body, [data-testid="stAppViewContainer"] {
 .img-card-id  { font-size: 0.65rem; font-weight: 700; color: #6366F1; text-transform: uppercase; letter-spacing: 0.5px; }
 .img-card-desc{ font-size: 0.75rem; color: #94A3B8; margin-top: 4px; line-height: 1.4; }
 
+/* ── Success card ── */
+.cs-success-card {
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(5,150,105,0.04) 100%);
+  border: 2px solid rgba(16,185,129,0.4); border-radius: 20px; padding: 2rem; text-align: center; margin: 1.5rem 0;
+}
+.cs-success-card .cs-big-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.cs-success-card .cs-success-title { font-size: 1.4rem; font-weight: 700; color: #10B981; margin-bottom: 0.5rem; }
+.cs-success-card .cs-success-sub { font-size: 0.85rem; color: #94A3B8; margin-bottom: 1.25rem; }
+.cs-success-metrics {
+  display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin: 1rem 0 1.5rem;
+}
+.cs-success-metric { text-align: center; }
+.cs-success-metric .sm-label { font-size: 0.65rem; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px; }
+.cs-success-metric .sm-value { font-size: 1.1rem; font-weight: 700; color: #F1F5F9; margin-top: 2px; }
+
+/* ── Error card ── */
+.cs-error-card {
+  background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 16px; padding: 1.5rem; margin: 1rem 0;
+}
+.cs-error-card .cs-error-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.cs-error-card .cs-error-title { font-size: 0.9rem; font-weight: 700; color: #EF4444; margin-bottom: 0.25rem; }
+.cs-error-card .cs-error-detail { font-size: 0.8rem; color: #94A3B8; line-height: 1.5; }
+
+/* ── Demo preset cards ── */
+.cs-demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 0.75rem 0; }
+.cs-demo-card {
+  background: #111827; border: 1px solid #1F2937; border-radius: 12px;
+  padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s;
+}
+.cs-demo-card:hover { border-color: #6366F1; }
+.cs-demo-card .cs-demo-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.cs-demo-card .cs-demo-label { font-size: 0.75rem; font-weight: 600; color: #E2E8F0; }
+.cs-demo-card .cs-demo-sub { font-size: 0.65rem; color: #64748B; margin-top: 2px; }
+
+/* ── CTA button row ── */
+.cs-cta-row {
+  display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;
+}
+
 /* ── Progress bar override ── */
 [data-testid="stProgress"] > div > div {
   background: linear-gradient(90deg, #6366F1, #8B5CF6) !important; border-radius: 999px !important;
@@ -367,6 +408,33 @@ def pipeline_step(icon: str, name: str, detail: str, state: str = "done"):
 def section_title(icon: str, text: str):
     st.markdown(f'<div class="cs-section-title"><span>{icon}</span>{text}</div>', unsafe_allow_html=True)
 
+
+def success_card_html(verdict: str, confidence: str, provider: str, latency_ms: int) -> str:
+    icon = {"supported": "✓", "contradicted": "✗", "not_enough_information": "~"}.get(verdict, "?")
+    status_label = {"supported": "Claim Verified", "contradicted": "Claim Contradicted", "not_enough_information": "Insufficient Evidence"}.get(verdict, verdict.replace("_", " ").title())
+    color = "green" if verdict == "supported" else "red" if verdict == "contradicted" else "amber"
+    return f"""
+    <div class="cs-success-card" style="border-color:rgba({','.join({'green':'16,185,129','red':'239,68,68','amber':'245,158,11'}.get(color,'100,116,139'))},0.4)">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem">{icon}</div>
+      <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#64748B">CLAIM DECISION</div>
+      <div style="font-size:1.8rem;font-weight:800;letter-spacing:-0.5px;margin:0.25rem 0;color:#{({'green':'10B981','red':'EF4444','amber':'F59E0B'}.get(color,'94A3B8'))}">{status_label}</div>
+      <div class="cs-success-metrics">
+        <div class="cs-success-metric"><div class="sm-label">Confidence</div><div class="sm-value">{confidence}</div></div>
+        <div class="cs-success-metric"><div class="sm-label">Provider</div><div class="sm-value">{provider}</div></div>
+        <div class="cs-success-metric"><div class="sm-label">Latency</div><div class="sm-value">{latency_ms}ms</div></div>
+      </div>
+    </div>"""
+
+
+def error_card_html(title: str, detail: str, icon: str = "⚠️") -> str:
+    return f"""
+    <div class="cs-error-card">
+      <div class="cs-error-icon">{icon}</div>
+      <div class="cs-error-title">{title}</div>
+      <div class="cs-error-detail">{detail}</div>
+    </div>"""
+
+
 # ── Pipeline runner ───────────────────────────────────────────────────────────
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -384,6 +452,7 @@ def _cached_claim_extraction(user_claim: str, claim_object: str) -> dict:
 
 
 def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
+    _t0 = time.time()
     from agents.vision_agent import VisionReviewAgent
     from models.claim_extraction import ClaimExtractionInput
     from models.enums import ClaimObject, IssueType, ObjectPart
@@ -405,14 +474,20 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
     tmp_paths, img_names = [], []
     img_bytes_map = {}
     for f in image_files:
-        raw = f.read()
+        try:
+            raw = f.read()
+        except Exception:
+            raise RuntimeError("Failed to read uploaded file.")
         suffix = Path(f.name).suffix or ".jpg"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        tmp.write(raw)
-        tmp.close()
-        tmp_paths.append(Path(tmp.name))
-        img_names.append(f.name)
-        img_bytes_map[f.name] = raw
+        try:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.write(raw)
+            tmp.close()
+            tmp_paths.append(Path(tmp.name))
+            img_names.append(f.name)
+            img_bytes_map[f.name] = raw
+        except OSError as exc:
+            raise RuntimeError(f"Failed to save uploaded file: {exc}") from exc
 
     try:
         # Stage A
@@ -479,6 +554,8 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
         if settings.has_vision_model:
             provider = f"{settings.model_provider}/{settings.vision_model}"
 
+        _latency = round((time.time() - _t0) * 1000)
+
         return dict(
             extraction=extraction,
             vision=vision_result,
@@ -487,6 +564,8 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
             has_model=settings.has_vision_model,
             provider=provider,
             img_bytes_map=img_bytes_map,
+            latency_ms=_latency,
+            _timestamp=datetime.now(tz=UTC).isoformat(),
         )
     except FileNotFoundError as exc:
         raise RuntimeError(f"Dataset file not found: {exc}") from exc
@@ -501,23 +580,24 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
 
 # ── AI Progress simulation ────────────────────────────────────────────────────
 
-def show_progress(placeholder):
+def show_progress(placeholder, provider: str = ""):
     steps = [
-        ("🔍", "Parsing claim conversation…",      0.20),
-        ("👁", "Analysing visual evidence…",        0.50),
-        ("📋", "Evaluating evidence standards…",    0.72),
-        ("⚖️",  "Running risk assessment…",          0.88),
-        ("✓",  "Computing final decision…",         1.00),
+        ("🔍", "Claim Extraction",     "Parsing conversation … extracting object, part, issue type",  0.20),
+        ("👁", "Vision Analysis",       f"Per-image VLM review via {provider or 'preflight mode'}",    0.45),
+        ("📋", "Evidence Validation",   "Rule-based sufficiency engine · CSV-driven requirements",    0.68),
+        ("⚖️",  "Risk Assessment",       "Decision rules · quality flags · user history",              0.87),
+        ("✓",  "Decision Generation",   "Supported / Contradicted / Not Enough Information",         1.00),
     ]
-    for icon, label, pct in steps:
+    for icon, name, detail, pct in steps:
         with placeholder.container():
             st.markdown(f"""
-            <div class="cs-card" style="text-align:center;padding:2rem;">
-              <div style="font-size:2rem;margin-bottom:0.5rem">{icon}</div>
-              <div style="font-size:1rem;font-weight:600;color:#E2E8F0;margin-bottom:1rem">{label}</div>
+            <div class="cs-card" style="text-align:center;padding:1.8rem;">
+              <div style="font-size:1.8rem;margin-bottom:0.3rem">{icon}</div>
+              <div style="font-size:1rem;font-weight:700;color:#E2E8F0;margin-bottom:0.15rem">{name}</div>
+              <div style="font-size:0.75rem;color:#64748B;margin-bottom:0.75rem">{detail}</div>
             </div>""", unsafe_allow_html=True)
             st.progress(pct)
-        time.sleep(0.6)
+        time.sleep(0.5)
 
 
 # ── Main layout ───────────────────────────────────────────────────────────────
@@ -564,6 +644,13 @@ else:
         '<span class="chip chip-red">● CONFIG LOAD FAILED</span></div>',
         unsafe_allow_html=True,
     )
+
+# ── Session state hardening ───────────────────────────────────────────────────
+if "_initialized" not in st.session_state:
+    st.session_state["_initialized"] = True
+    st.session_state["_focus_results"] = False
+    st.session_state["_focus_trace"] = False
+    st.session_state["_last_analysis_ts"] = 0
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 import os as _os
@@ -643,7 +730,7 @@ with tab_review:
               <div class="pipe-icon done">2</div>
               <div class="pipe-body">
                 <div class="pipe-name">Vision Review</div>
-                <div class="pipe-detail">Gemini 2.5 Flash · per-image VLM analysis</div>
+                <div class="pipe-detail">Multi-model VLM · per-image analysis</div>
               </div>
             </div>
             <div class="pipe-step">
@@ -679,28 +766,110 @@ with tab_review:
         </div>
         """, unsafe_allow_html=True)
 
+    # ── Demo mode presets ──────────────────────────────────────
+    if _DEMO_MODE:
+        st.markdown("""
+        <div class="cs-card" style="margin-top:0.5rem">
+          <div class="cs-card-title">⚡ QUICK DEMO</div>
+          <div style="font-size:0.8rem;color:#94A3B8;margin-bottom:0.75rem">
+            Load a pre-configured claim scenario with a single click.
+          </div>
+        </div>""", unsafe_allow_html=True)
+        col_d1, col_d2, col_d3 = st.columns(3)
+        try:
+            from models.enums import ClaimObject, IssueType, ObjectPart
+        except Exception:
+            pass
+        for col, scenario in [
+            (col_d1, ("supported", "car", "rear_bumper", "Customer: The rear bumper has a visible dent after a minor collision.\nSupport: Can you describe the damage?\nCustomer: Yes, there's a clear dent on the right side of the rear bumper about 10cm wide.")),
+            (col_d2, ("contradicted", "car", "front_bumper", "Customer: The front bumper has a large crack after a parking incident.\nSupport: Where exactly is the damage?\nCustomer: Middle of the front bumper. I can see the crack clearly.")),
+            (col_d3, ("not_enough_information", "laptop", "screen", "Customer: I think my laptop screen might be damaged but I'm not sure.\nSupport: Can you describe what you see?\nCustomer: It looks a bit strange but I can't tell if it's cracked or just dirty.")),
+        ]:
+            with col:
+                if st.button(f"🔄 {scenario[0].replace('_', ' ').title()}", key=f"demo_{scenario[0]}", use_container_width=True):
+                    st.session_state["_demo_claim"] = scenario[3]
+                    st.session_state["_demo_object"] = scenario[1]
+                    st.rerun()
+
+    # ── Load demo scenario if set ──
+    if st.session_state.get("_demo_claim"):
+        user_claim = st.session_state["_demo_claim"]
+        claim_object = st.session_state.get("_demo_object", "car")
+        st.session_state["_demo_claim"] = ""
+        # Trigger analysis automatically
+        analyze_demo = True
+    else:
+        analyze_demo = False
+
     # Process claim
-    if analyze:
+    if analyze or analyze_demo:
         if not user_claim.strip():
             st.error("Please enter a claim conversation before analysing.")
         else:
+            provider_name = "No model"
+            try:
+                _s = st.session_state.get("_settings")
+                if _s and _s.has_vision_model:
+                    provider_name = f"{_s.model_provider}/{_s.vision_model}"
+            except Exception:
+                pass
             progress_placeholder = st.empty()
-            show_progress(progress_placeholder)
+            show_progress(progress_placeholder, provider=provider_name)
             progress_placeholder.empty()
 
             with st.spinner(""):
                 try:
                     result = run_pipeline(uploaded_files or [], user_claim, claim_object)
                     st.session_state["result"] = result
-                    st.success("Analysis complete — switch to the **Results** tab to view findings.")
+                    st.session_state["_last_analysis_ts"] = time.time()
+
+                    # Show inline success card
+                    r = result
+                    out = r["output"]
+                    vision = r["vision"]
+                    status = str(out.claim_status)
+                    conf_pct = f"{vision.confidence * 100:.0f}%"
+                    prov = r.get("provider", "unknown")
+                    lat = r.get("latency_ms", 0)
+
+                    st.markdown(success_card_html(status, conf_pct, prov, lat), unsafe_allow_html=True)
+                    st.toast("✓ Analysis complete!", icon="✅")
+
+                    # CTA buttons
+                    c1, c2, _ = st.columns([1, 1, 2])
+                    with c1:
+                        if st.button("◈  View Results →", key="goto_results", type="primary", use_container_width=True):
+                            st.session_state["_focus_results"] = True
+                            st.rerun()
+                    with c2:
+                        if st.button("◉  View Decision Trace →", key="goto_trace", use_container_width=True):
+                            st.session_state["_focus_trace"] = True
+                            st.rerun()
+
+                except RuntimeError as exc:
+                    err_msg = str(exc)
+                    if "FileNotFoundError" in err_msg or "not found" in err_msg.lower():
+                        st.markdown(error_card_html("Dataset Error", "A required data file could not be found. Please check that the dataset files are in place."), unsafe_allow_html=True)
+                    elif "Missing dependency" in err_msg or "ImportError" in err_msg:
+                        st.markdown(error_card_html("Missing Dependency", f"The required package could not be imported: {err_msg}. Run: pip install -r requirements.txt"), unsafe_allow_html=True)
+                    elif "API key" in err_msg.lower() or "not authorized" in err_msg.lower() or "permission" in err_msg.lower():
+                        st.markdown(error_card_html("Provider Authentication Error", "The AI provider could not authenticate. Please check your API key configuration."), unsafe_allow_html=True)
+                    elif "Failed to read" in err_msg or "Failed to save" in err_msg:
+                        st.markdown(error_card_html("Image Processing Error", err_msg), unsafe_allow_html=True)
+                    else:
+                        st.markdown(error_card_html("Pipeline Error", f"An error occurred during analysis: {err_msg[:200]}"), unsafe_allow_html=True)
                 except Exception as exc:
-                    st.error(f"Pipeline error: {exc}")
+                    st.markdown(error_card_html("Unexpected Error", f"An unexpected issue occurred. Please try again. ({type(exc).__name__})"), unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════
 # TAB 2 — RESULTS
 # ═══════════════════════════════════════════════════════════════
 with tab_results:
+    if st.session_state.get("_focus_results"):
+        st.session_state["_focus_results"] = False
+        st.toast("✓ Results ready", icon="◈")
+
     if "result" not in st.session_state:
         st.markdown("""
         <div class="cs-card" style="text-align:center;padding:3rem;">
@@ -737,7 +906,9 @@ with tab_results:
         kpis_html += kpi("Object Part",     str(out.object_part).replace("_", " ").title(), "", "indigo")
         kpis_html += kpi("Severity",        str(out.severity).title(),                 "", severity_color)
         kpis_html += kpi("Evidence Std.",   "Met" if esm else "Not Met",               "", "green" if esm else "red")
+        lat_ms = r.get("latency_ms", 0)
         kpis_html += kpi("Confidence",      conf_pct,                                  provider, "indigo")
+        kpis_html += kpi("Latency", f"{lat_ms}ms" if lat_ms else "—", "", "indigo")
         kpis_html += '</div>'
         st.markdown(kpis_html, unsafe_allow_html=True)
 
@@ -822,6 +993,10 @@ with tab_results:
 # TAB 3 — DECISION TRACE
 # ═══════════════════════════════════════════════════════════════
 with tab_trace:
+    if st.session_state.get("_focus_trace"):
+        st.session_state["_focus_trace"] = False
+        st.toast("✓ Decision trace ready", icon="◉")
+
     if "result" not in st.session_state:
         st.markdown("""
         <div class="cs-card" style="text-align:center;padding:3rem;">

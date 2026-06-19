@@ -41,6 +41,8 @@ from demo.app import (
     section_title,
     topbar,
     verdict_banner,
+    success_card_html,
+    error_card_html,
     _inject_secrets,
     show_progress,
 )
@@ -415,3 +417,205 @@ def test_verdict_banner_all_statuses(status, expected_title):
 def test_kpi_status_color(status, expected_key):
     result = kpi("Claim Status", status.replace("_", " ").title(), "", expected_key)
     assert expected_key in result
+
+
+# ---------------------------------------------------------------------------
+# success_card_html
+# ---------------------------------------------------------------------------
+
+
+def test_success_card_html_supported():
+    html = success_card_html("supported", "95%", "gemini/gemini-2.5-flash", 3200)
+    assert "Claim Verified" in html
+    assert "95%" in html
+    assert "gemini/gemini-2.5-flash" in html
+    assert "3200ms" in html
+
+
+def test_success_card_html_contradicted():
+    html = success_card_html("contradicted", "80%", "openrouter/qwen", 5100)
+    assert "Claim Contradicted" in html
+    assert "80%" in html
+
+
+def test_success_card_html_nei():
+    html = success_card_html("not_enough_information", "60%", "openrouter/llama", 4200)
+    assert "Insufficient Evidence" in html
+
+
+def test_success_card_html_unknown_verdict():
+    html = success_card_html("unknown", "0%", "", 0)
+    assert "Unknown" in html
+
+
+# ---------------------------------------------------------------------------
+# error_card_html
+# ---------------------------------------------------------------------------
+
+
+def test_error_card_html_renders():
+    html = error_card_html("Provider Error", "The provider is unavailable.")
+    assert "Provider Error" in html
+    assert "The provider is unavailable." in html
+
+
+def test_error_card_html_icon():
+    html = error_card_html("Test", "Detail", icon="🚨")
+    assert "🚨" in html
+
+
+# ---------------------------------------------------------------------------
+# run_pipeline latency tracking
+# ---------------------------------------------------------------------------
+
+
+def test_run_pipeline_returns_latency():
+    with (
+        patch.object(_demo_app, "st", _make_st_mock()),
+        patch.object(_demo_app, "_cached_claim_extraction") as mock_cache,
+        patch("config.Settings") as mock_settings_cls,
+        patch("services.model_service.ModelService"),
+        patch("services.evidence_standards_engine.EvidenceStandardsEngine"),
+        patch("services.decision_service.DecisionService"),
+    ):
+        mock_settings = MagicMock(has_vision_model=False)
+        mock_settings_cls.return_value = mock_settings
+
+        mock_cache.return_value = {
+            "claim_summary": "Test", "claimed_issue_type": "dent",
+            "claimed_object_part": "rear_bumper", "is_multi_part": False,
+        }
+
+        result = run_pipeline([], "Test claim", "car")
+        assert "latency_ms" in result
+        assert isinstance(result["latency_ms"], int)
+        assert "_timestamp" in result
+
+
+# ---------------------------------------------------------------------------
+# show_progress with provider
+# ---------------------------------------------------------------------------
+
+
+def test_show_progress_with_provider():
+    with patch.object(_demo_app, "st", _make_st_mock()) as mock_st:
+        placeholder = MagicMock()
+        mock_container = MagicMock()
+        placeholder.container.return_value = mock_container
+        show_progress(placeholder, provider="gemini/gemini-2.5-flash")
+        assert placeholder.container.call_count >= 1
+
+
+# ---------------------------------------------------------------------------
+# Session state hardening
+# ---------------------------------------------------------------------------
+
+
+def test_session_state_initialized():
+    st_mock = _make_st_mock()
+    st_mock.session_state = {}
+    with patch.object(_demo_app, "st", st_mock):
+        if "_initialized" not in st_mock.session_state:
+            st_mock.session_state["_initialized"] = True
+            st_mock.session_state["_focus_results"] = False
+            st_mock.session_state["_focus_trace"] = False
+            st_mock.session_state["_last_analysis_ts"] = 0
+        assert st_mock.session_state.get("_initialized") is True
+        assert st_mock.session_state.get("_focus_results") is False
+        assert st_mock.session_state.get("_focus_trace") is False
+
+
+# ---------------------------------------------------------------------------
+# Empty state views
+# ---------------------------------------------------------------------------
+
+
+def test_results_tab_empty_state():
+    html = """
+    <div class="cs-card" style="text-align:center;padding:3rem;">
+      <div style="font-size:3rem;margin-bottom:1rem">◈</div>
+      <div style="font-size:1rem;font-weight:600;color:#94A3B8;">
+        Submit a claim in the Claim Review tab to see results here.
+      </div>
+    </div>"""
+    assert "Submit a claim" in html
+    assert "Claim Review" in html
+
+
+def test_trace_tab_empty_state():
+    html = """
+    <div class="cs-card" style="text-align:center;padding:3rem;">
+      <div style="font-size:3rem;margin-bottom:1rem">◉</div>
+      <div style="font-size:1rem;font-weight:600;color:#94A3B8;">
+        Submit a claim to see the full decision trace.
+      </div>
+    </div>"""
+    assert "Submit a claim" in html
+    assert "decision trace" in html.lower()
+
+
+# ---------------------------------------------------------------------------
+# Error handling edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_run_pipeline_failed_file_read():
+    mock_file = MagicMock()
+    mock_file.read.side_effect = OSError("Disk error")
+
+    with (
+        patch.object(_demo_app, "st", _make_st_mock()),
+        patch.object(_demo_app, "_cached_claim_extraction") as mock_cache,
+        patch("config.Settings") as mock_settings_cls,
+    ):
+        mock_settings = MagicMock(has_vision_model=False)
+        mock_settings_cls.return_value = mock_settings
+        mock_cache.return_value = {"claim_summary": "Test", "claimed_issue_type": "dent",
+                                    "claimed_object_part": "rear_bumper", "is_multi_part": False}
+        with pytest.raises(RuntimeError, match="Failed to read"):
+            run_pipeline([mock_file], "Test claim", "car")
+
+
+def test_run_pipeline_tempfile_error():
+    mock_file = MagicMock()
+    mock_file.name = "test.jpg"
+    mock_file.read.return_value = b"fake_image_data"
+
+    with (
+        patch.object(_demo_app, "st", _make_st_mock()),
+        patch.object(_demo_app, "_cached_claim_extraction") as mock_cache,
+        patch("config.Settings") as mock_settings_cls,
+        patch("tempfile.NamedTemporaryFile", side_effect=OSError("No space")),
+    ):
+        mock_settings = MagicMock(has_vision_model=False)
+        mock_settings_cls.return_value = mock_settings
+        mock_cache.return_value = {"claim_summary": "Test", "claimed_issue_type": "dent",
+                                    "claimed_object_part": "rear_bumper", "is_multi_part": False}
+        with pytest.raises(RuntimeError, match="Failed to save"):
+            run_pipeline([mock_file], "Test claim", "car")
+
+
+# ---------------------------------------------------------------------------
+# Demo mode presets
+# ---------------------------------------------------------------------------
+
+
+def test_demo_mode_supported_preset():
+    scenario = ("supported", "car", "rear_bumper",
+                "Customer: The rear bumper has a visible dent after a minor collision.")
+    assert scenario[0] == "supported"
+    assert "rear_bumper" in scenario[2]
+
+
+def test_demo_mode_contradicted_preset():
+    scenario = ("contradicted", "car", "front_bumper",
+                "Customer: The front bumper has a large crack after a parking incident.")
+    assert scenario[0] == "contradicted"
+    assert "crack" in scenario[3]
+
+
+def test_demo_mode_nei_preset():
+    scenario = ("not_enough_information", "laptop", "screen",
+                "Customer: I think my laptop screen might be damaged but I'm not sure.")
+    assert scenario[0] == "not_enough_information"
+    assert "screen" in scenario[2]
