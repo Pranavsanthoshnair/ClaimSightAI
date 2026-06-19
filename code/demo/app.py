@@ -114,14 +114,17 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stSidebar"] { background: #111827 !important; border-right: 1px solid #1F2937; }
 
-/* Hide Streamlit chrome but keep sidebar toggle accessible */
+/* ── Hide Streamlit chrome surgically (NOT the whole header) ── */
 #MainMenu, footer { visibility: hidden; }
-header { visibility: hidden; }
 
-/* ── Sidebar collapse/expand arrow — ALWAYS visible ──────────────── */
+/* Hide specific toolbar children — NOT the whole header */
+[data-testid="stToolbar"]          { visibility: hidden; }
+[data-testid="stDecoration"]       { display: none; }
+[data-testid="stStatusWidget"]     { visibility: hidden; }
+
+/* ── Sidebar expand arrow — naturally visible (no header:hidden fight) ── */
 [data-testid="collapsedControl"] {
   visibility: visible !important;
-  opacity: 1 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -132,7 +135,6 @@ header { visibility: hidden; }
   z-index: 99999 !important;
   width: 22px !important;
   height: 52px !important;
-  min-width: 22px !important;
   background: linear-gradient(180deg, #4F46E5, #6366F1) !important;
   border: none !important;
   border-radius: 0 10px 10px 0 !important;
@@ -141,8 +143,8 @@ header { visibility: hidden; }
   transition: width 0.2s ease, box-shadow 0.2s ease !important;
 }
 [data-testid="collapsedControl"]:hover {
-  width: 28px !important;
-  box-shadow: 2px 0 18px rgba(99,102,241,0.8) !important;
+  width: 30px !important;
+  box-shadow: 2px 0 20px rgba(99,102,241,0.9) !important;
 }
 [data-testid="collapsedControl"] svg {
   fill: #fff !important;
@@ -150,7 +152,7 @@ header { visibility: hidden; }
   width: 14px !important;
   height: 14px !important;
 }
-/* Also style the in-sidebar collapse button */
+/* In-sidebar collapse button */
 [data-testid="stSidebarCollapseButton"] button {
   color: #6366F1 !important;
 }
