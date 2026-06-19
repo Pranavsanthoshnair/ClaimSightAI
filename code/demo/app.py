@@ -2,7 +2,8 @@
 ClaimSight AI — Production-Grade Evidence Review Platform
 Run locally:        streamlit run code/demo/app.py
 Deploy on Cloud:    Set Main file path = code/demo/app.py
-                    Add GEMINI_API_KEY in Streamlit Cloud → Settings → Secrets
+                    Add OPENROUTER_API_KEY in Streamlit Cloud → Settings → Secrets
+                    Optionally add GROQ_API_KEY for text reasoning fallback
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
@@ -30,9 +31,14 @@ def _inject_secrets() -> None:
     """Push Streamlit secrets into os.environ so Settings() picks them up."""
     try:
         import streamlit as _st
-        for key in ("GEMINI_API_KEY", "MODEL_PROVIDER", "VISION_MODEL",
-                    "OPENROUTER_API_KEY", "OPENROUTER_MODEL",
-                    "OPENROUTER_MODEL_TIER2", "OPENROUTER_MODEL_TIER3"):
+        for key in (
+            "OPENROUTER_API_KEY",
+            "OPENROUTER_MODEL_PRIMARY",
+            "OPENROUTER_MODEL_SECONDARY",
+            "OPENROUTER_MODEL_TERTIARY",
+            "GROQ_API_KEY",
+            "GROQ_MODEL",
+        ):
             try:
                 val = _st.secrets.get(key)
                 if val and not os.environ.get(key):
@@ -552,7 +558,7 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
 
         provider = "No model"
         if settings.has_vision_model:
-            provider = f"{settings.model_provider}/{settings.vision_model}"
+            provider = f"openrouter/{settings.openrouter_model_primary.split('/')[-1]}"
 
         _latency = round((time.time() - _t0) * 1000)
 
@@ -620,15 +626,25 @@ if _Cfg is not None:
     try:
         _s = _Cfg(repo_root=_REPO_DIR)
         if _s.has_vision_model:
+            # Show provider chain summary (Tier 1 model name)
+            _t1_name = _s.openrouter_model_primary.split("/")[-1]
             st.markdown(
-                f'<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-                f'<span class="chip chip-green">● {_s.model_provider.upper()} CONNECTED</span></div>',
+                f'<div style="text-align:right;margin-top:-3rem;margin-bottom:0.5rem">'
+                f'<span class="chip chip-green">● VISION PROVIDERS READY</span></div>'
+                f'<div style="text-align:right;margin-bottom:1rem;font-size:0.68rem;color:#475569">'
+                f'T1:{_s.openrouter_model_primary.split("/")[-1]} '
+                f'· T2:{_s.openrouter_model_secondary.split("/")[-1]} '
+                f'· T3:{_s.openrouter_model_tertiary.split("/")[-1]} '
+                f'· Groq:{_s.groq_model if _s.groq_api_key else "not configured"}'
+                f'</div>',
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
                 '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-                '<span class="chip chip-amber">● PREFLIGHT MODE</span></div>',
+                '<span class="chip chip-amber">● PREFLIGHT MODE</span>'
+                '<span style="font-size:0.65rem;color:#64748B;margin-left:8px">Set OPENROUTER_API_KEY to enable vision</span>'
+                '</div>',
                 unsafe_allow_html=True,
             )
         st.session_state["_settings"] = _s
@@ -810,7 +826,7 @@ with tab_review:
             try:
                 _s = st.session_state.get("_settings")
                 if _s and _s.has_vision_model:
-                    provider_name = f"{_s.model_provider}/{_s.vision_model}"
+                    provider_name = f"openrouter/{_s.openrouter_model_primary.split('/')[-1]}"
             except Exception:
                 pass
             progress_placeholder = st.empty()
@@ -1113,7 +1129,7 @@ with tab_trace:
             <strong style="color:#6366F1">ClaimSight AI</strong> · Multi-Modal Evidence Review
           </div>
           <div style="font-size:0.7rem;color:#374151">
-            Powered by Gemini 2.5 Flash · OpenRouter fallback · Pydantic schemas
+            Powered by OpenRouter (Qwen2.5-VL · Llama Vision · Pixtral Large) · Groq fallback · Pydantic schemas
           </div>
         </div>""", unsafe_allow_html=True)
 
@@ -1203,8 +1219,8 @@ reasoning: {extraction.reasoning[:200]}""")
                 if not r.get("has_model"):
                     st.error(
                         "❌ **No VLM configured.** All vision fields are preflight-only. "
-                        "object_visible=False because no model called Gemini. "
-                        "Set GEMINI_API_KEY in secrets to get real results."
+                        "object_visible=False because no vision provider was called. "
+                        "Set OPENROUTER_API_KEY in secrets to enable real vision analysis."
                     )
 
             # ── Stage C: Evidence Standards ──────────────────────────────
@@ -1285,7 +1301,7 @@ evidence_met:     {out.evidence_standard_met}""")
 
             issues_found = []
             if not r.get("has_model"):
-                issues_found.append("NO_MODEL_CONFIGURED: All vision outputs are preflight defaults. Connect Gemini API.")
+                issues_found.append("NO_MODEL_CONFIGURED: All vision outputs are preflight defaults. Set OPENROUTER_API_KEY to enable vision analysis.")
             if extraction.is_multi_part and not extraction.additional_claimed_parts:
                 issues_found.append(
                     "FALSE_MULTI_PART: is_multi_part=True with no secondary parts. "

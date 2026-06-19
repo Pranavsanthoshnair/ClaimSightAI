@@ -4,7 +4,12 @@ Uses the standard OpenAI-compatible chat/completions endpoint at
 https://openrouter.ai/api/v1/chat/completions.
 
 Image is sent as a base64 data URL in the message content.
-Supports any model accessible on OpenRouter (default: google/gemini-2.5-flash).
+Supports any vision-capable model accessible on OpenRouter.
+
+Provider chain (managed by ModelService):
+    Tier 1 (Primary):   qwen/qwen2.5-vl-72b-instruct
+    Tier 2 (Secondary): meta-llama/llama-3.2-90b-vision-instruct
+    Tier 3 (Tertiary):  mistralai/pixtral-large-2411
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ from .base import BaseVisionProvider
 logger = logging.getLogger(__name__)
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-_DEFAULT_MODEL = "google/gemini-2.5-flash"
+_DEFAULT_MODEL = "qwen/qwen2.5-vl-72b-instruct"
 _MAX_DIM = 1536
 
 
@@ -69,7 +74,7 @@ class OpenRouterProvider(BaseVisionProvider):
     api_key : str
         OpenRouter API key (Bearer token).
     model : str
-        Model slug, e.g. ``"google/gemini-2.5-flash"``.
+        Model slug, e.g. ``"qwen/qwen2.5-vl-72b-instruct"``.
     temperature : float
         Sampling temperature; 0 for deterministic output.
     timeout : int
@@ -107,7 +112,7 @@ class OpenRouterProvider(BaseVisionProvider):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/multi-modal-evidence-review",
-            "X-Title": "Multi-Modal Evidence Review",
+            "X-Title": "ClaimSight AI — Multi-Modal Evidence Review",
         }
 
         payload = {

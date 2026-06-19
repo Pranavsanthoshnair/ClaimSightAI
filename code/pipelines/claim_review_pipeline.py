@@ -35,8 +35,8 @@ class ClaimReviewPipeline:
         # Wire the real vision model if configured
         model_svc = ModelService(settings=settings) if settings.has_vision_model else None
         if model_svc is not None:
-            logger.info("VisionReviewAgent: using provider=%s model=%s",
-                        settings.model_provider, settings.vision_model)
+            logger.info("VisionReviewAgent: using provider chain: %s",
+                        settings.provider_summary)
         else:
             logger.info("VisionReviewAgent: no model configured, running in preflight-only mode")
         self.vision_agent = VisionReviewAgent(model_service=model_svc)

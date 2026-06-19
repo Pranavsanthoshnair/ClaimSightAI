@@ -14,16 +14,39 @@ Then open http://localhost:8501 in your browser.
 ## Requirements
 
 ```bash
-pip install streamlit
+pip install -r requirements.txt
 ```
 
-Also set `GEMINI_API_KEY` in `.env` for real VLM analysis:
-```
-MODEL_PROVIDER=gemini
-GEMINI_API_KEY=your_key_here
+## Provider Configuration
+
+Set `OPENROUTER_API_KEY` in `.env` for real VLM analysis:
+
+```env
+# Required — get your key at https://openrouter.ai/keys
+OPENROUTER_API_KEY=your_key_here
+
+# Optional — model overrides (defaults shown)
+OPENROUTER_MODEL_PRIMARY=qwen/qwen2.5-vl-72b-instruct
+OPENROUTER_MODEL_SECONDARY=meta-llama/llama-3.2-90b-vision-instruct
+OPENROUTER_MODEL_TERTIARY=mistralai/pixtral-large-2411
+
+# Optional — Groq text reasoning fallback
+GROQ_API_KEY=your_groq_key_here
+GROQ_MODEL=llama-3.1-8b-instant
 ```
 
-Without an API key the app runs in preflight-only mode — claim extraction works but visual analysis is unavailable.
+Without an API key the app runs in **preflight-only mode** — claim extraction works but visual image analysis is unavailable.
+
+## Provider Chain
+
+The app uses a 4-tier provider chain:
+
+| Tier | Provider | Model | Role |
+|------|----------|-------|------|
+| T1 | OpenRouter | Qwen2.5-VL-72B | Primary vision |
+| T2 | OpenRouter | Llama-3.2-90B-Vision | Secondary fallback |
+| T3 | OpenRouter | Pixtral Large (124B) | Tertiary fallback |
+| T4 | Groq | llama-3.1-8b-instant | Text reasoning fallback |
 
 ## Pages
 

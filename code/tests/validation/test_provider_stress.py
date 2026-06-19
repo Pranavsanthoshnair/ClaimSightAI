@@ -1,7 +1,7 @@
 """Provider reliability stress tests — 429 handling, fallback, malformed responses.
 
-Covers:
-1. 429 quota exhaustion → immediate fallback (Gemini → OpenRouter)
+Covers the OpenRouter-first 4-tier provider chain:
+1. 429 quota exhaustion → immediate fallback (Tier 1 → Tier 2)
 2. 503 service unavailable → retry then fallback
 3. Timeout/ConnectionError → fallback trigger
 4. All tiers fail → graceful None return
@@ -71,7 +71,7 @@ class TestProviderStress:
     """Provider reliability under stress conditions."""
 
     def test_429_quota_immediate_fallback(self, tmp_path):
-        """Gemini 429 quota → immediate RuntimeError → fallback to Tier 2 succeeds."""
+        """Tier 1 (Qwen) 429 quota → immediate RuntimeError → fallback to Tier 2 succeeds."""
         p = _make_image_bytes(tmp_path)
         svc = MagicMock()
         svc.inspect_image.side_effect = [
@@ -125,7 +125,7 @@ class TestProviderStress:
         assert svc.inspect_image.call_count == 3
 
     def test_503_retry_then_fallback(self, tmp_path):
-        """Gemini 503 → retry, then fallback on exhaustion."""
+        """Tier 1 503 → retry attempt, then fallback on exhaustion."""
         p = _make_image_bytes(tmp_path)
         svc = MagicMock()
         svc.inspect_image.side_effect = [
@@ -264,34 +264,27 @@ class TestModelServiceProviderInit:
 
     def test_no_api_keys_preflight_mode(self):
         """No API keys → has_vision_model is False."""
-        settings = Settings(model_provider="none", gemini_api_key="", openrouter_api_key="")
+        settings = Settings(openrouter_api_key="")
         assert settings.has_vision_model is False
-
-    def test_gemini_api_key_enables_vision(self):
-        """Gemini API key alone → has_vision_model is True."""
-        settings = Settings(model_provider="gemini", gemini_api_key="fake-key")
-        assert settings.has_vision_model is True
 
     def test_openrouter_api_key_enables_vision(self):
         """OpenRouter API key alone → has_vision_model is True."""
-        settings = Settings(model_provider="none", openrouter_api_key="fake-key")
+        settings = Settings(openrouter_api_key="fake-key")
         assert settings.has_vision_model is True
 
     def test_model_service_init_no_keys(self):
-        """ModelService init with no keys → inspect_image raises NotImplementedError."""
-        settings = Settings(model_provider="none", gemini_api_key="", openrouter_api_key="")
+        """ModelService init with no keys → inspect_image returns None (no providers)."""
+        settings = Settings(openrouter_api_key="", groq_api_key="")
         svc = ModelService(settings=settings)
-        with pytest.raises(NotImplementedError, match="No VLM configured"):
-            svc.inspect_image("sys", "prompt", b"\x00" * 100)
+        result = svc.inspect_image("sys", "prompt", b"\x00" * 100)
+        assert result is None
 
-    def test_provider_property_with_only_fallback(self, tmp_path):
-        """provider_name works when only fallback configured."""
+    def test_provider_property_with_openrouter_key(self, tmp_path):
+        """provider_name works when OpenRouter key is configured."""
         settings = Settings(
-            model_provider="gemini",
             openrouter_api_key="fake-or-key",
         )
         svc = ModelService(settings=settings)
-        # Primary provider not created (no gemini key), but fallbacks are
         name = svc.provider_name
         assert isinstance(name, str)
 

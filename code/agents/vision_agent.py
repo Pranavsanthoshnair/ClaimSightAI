@@ -212,7 +212,7 @@ def _image_cache_key(
 def _normalise_enum_str(val: str) -> str:
     """Normalise model output to match enum values.
 
-    Gemini sometimes returns "rear bumper", "rear-bumper" or "REAR_BUMPER".
+    OpenRouter models may return "rear bumper", "rear-bumper" or "REAR_BUMPER".
     All normalise to "rear_bumper".
     """
     return str(val).strip().lower().replace(" ", "_").replace("-", "_")
@@ -845,7 +845,8 @@ class VisionReviewAgent:
         """Call the vision model, retry on API error OR JSON parse failure.
 
         Tries up to 2 attempts.  Each attempt calls ``inspect_image()`` which
-        internally runs the 3-tier fallback chain (Gemini → Qwen → Llama).
+        internally runs the 3-tier OpenRouter fallback chain (Qwen2.5-VL → Llama Vision → Pixtral Large)
+        followed by Groq text fallback if all vision tiers fail.
         If the raw response is not valid JSON, the attempt is retried.
         Returns ``None`` when all attempts and all tiers have been exhausted.
         """

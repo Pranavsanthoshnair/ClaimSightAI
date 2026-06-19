@@ -191,9 +191,9 @@ def _classify_root_cause(row: pd.Series) -> dict[str, Any]:
 
 _RECOMMENDATIONS: dict[str, list[str]] = {
     "no_model_baseline": [
-        "Configure GEMINI_API_KEY or OPENROUTER_API_KEY to enable VLM analysis.",
-        "Ensure MODEL_PROVIDER is set to 'gemini' (not 'none') in the .env file.",
-        "Use the OpenRouter fallback to avoid free-tier 429 errors on Gemini.",
+        "Configure OPENROUTER_API_KEY to enable VLM vision analysis.",
+        "Groq is only used for text reasoning fallback when all OpenRouter vision tiers fail.",
+        "Ensure the 4-tier OpenRouter chain is operational: Qwen2.5-VL → Llama Vision → Pixtral Large → Groq.",
     ],
     "object_confusion": [
         "Add explicit object-type verification in Step 1 of the vision prompt.",

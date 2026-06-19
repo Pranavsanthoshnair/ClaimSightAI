@@ -263,8 +263,9 @@ def test_run_pipeline_no_images():
     ):
         mock_settings = MagicMock()
         mock_settings.has_vision_model = True
-        mock_settings.model_provider = "gemini"
-        mock_settings.vision_model = "gemini-2.5-flash"
+        mock_settings.openrouter_model_primary = "qwen/qwen2.5-vl-72b-instruct"
+        mock_settings.openrouter_model_secondary = "meta-llama/llama-3.2-90b-vision-instruct"
+        mock_settings.openrouter_model_tertiary = "mistralai/pixtral-large-2411"
         mock_settings_cls.return_value = mock_settings
 
         mock_cache.return_value = {
@@ -425,10 +426,10 @@ def test_kpi_status_color(status, expected_key):
 
 
 def test_success_card_html_supported():
-    html = success_card_html("supported", "95%", "gemini/gemini-2.5-flash", 3200)
+    html = success_card_html("supported", "95%", "openrouter/qwen2.5-vl-72b-instruct", 3200)
     assert "Claim Verified" in html
     assert "95%" in html
-    assert "gemini/gemini-2.5-flash" in html
+    assert "openrouter/qwen2.5-vl-72b-instruct" in html
     assert "3200ms" in html
 
 
@@ -502,7 +503,7 @@ def test_show_progress_with_provider():
         placeholder = MagicMock()
         mock_container = MagicMock()
         placeholder.container.return_value = mock_container
-        show_progress(placeholder, provider="gemini/gemini-2.5-flash")
+        show_progress(placeholder, provider="openrouter/qwen2.5-vl-72b-instruct")
         assert placeholder.container.call_count >= 1
 
 

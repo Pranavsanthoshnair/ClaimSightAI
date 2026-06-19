@@ -49,7 +49,7 @@ def main() -> None:
 
     print(f"[generate_output] Input:  {repo / args.input}")
     print(f"[generate_output] Output: {repo / args.output}")
-    print(f"[generate_output] Model provider: {settings.model_provider}")
+    print(f"[generate_output] Provider chain: {settings.provider_summary}")
     print(f"[generate_output] VLM available: {settings.has_vision_model}")
 
     pipeline = ClaimReviewPipeline(settings=settings)

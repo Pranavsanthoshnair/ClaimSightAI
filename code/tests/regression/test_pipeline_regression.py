@@ -316,7 +316,7 @@ class TestEvidenceStandardsRegression:
 # ── Provider fallback ─────────────────────────────────────────────────────────
 
 class TestProviderFallbackRegression:
-    def test_gemini_success_no_fallback(self, tmp_path):
+    def test_tier1_success_no_fallback(self, tmp_path):
         from agents.vision_agent import VisionReviewAgent
         from models.vision_review import VisionReviewInput
         from models.enums import IssueType, ObjectPart, ClaimObject

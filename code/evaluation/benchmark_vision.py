@@ -2,7 +2,7 @@
 
 Usage
 -----
-    # With a real model (set GEMINI_API_KEY and MODEL_PROVIDER=gemini first):
+    # With a real model (set OPENROUTER_API_KEY first):
     python code/evaluation/benchmark_vision.py
 
     # Default: only v3 prompt (faster)
@@ -487,7 +487,7 @@ def _write_report(results: list[dict], path: Path) -> None:
         lines.append(
             "> Note: Benchmark ran in no-model mode. "
             "All vision results are preflight-only (confidence=0). "
-            "Set `GEMINI_API_KEY` and `MODEL_PROVIDER=gemini` for real results."
+            "Set `OPENROUTER_API_KEY` to enable real VLM analysis."
         )
 
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
@@ -537,12 +537,11 @@ def main() -> None:
         settings = Settings(repo_root=repo)
         if settings.has_vision_model:
             model_service = ModelService(settings=settings)
-            print(f"[benchmark] Using model: {settings.model_provider}/{settings.vision_model}")
+            print(f"[benchmark] Using provider chain: {settings.provider_summary}")
             uncached_rows = len(df) - len([k for k in persistent_cache])
             if len(versions) * len(df) > 5:
-                est_min = round(len(versions) * len(df) * 13 / 60, 1)
-                print(f"[benchmark] Free-tier throttling active (~13s/call). Estimated max time: {est_min} min")
-                print(f"[benchmark] (Cached rows skip the throttle.)")
+                est_min = round(len(versions) * len(df) * 2 / 60, 1)
+                print(f"[benchmark] Estimated max time: {est_min} min")
         else:
             print("[benchmark] No model configured — running in no-model mode.")
 

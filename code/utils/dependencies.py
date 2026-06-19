@@ -35,9 +35,7 @@ _REQUIRED_PACKAGES: list[tuple[str, str, str, str]] = [
 ]
 
 _OPTIONAL_PACKAGES: list[tuple[str, str, str, str]] = [
-    ("google.genai", "google-genai", "2.0.0", "Google Gemini vision (primary provider)"),
-    ("openai", "openai", "0.27.0", "OpenAI / OpenRouter API client"),
-    ("anthropic", "anthropic", "0.28.0", "Anthropic Claude vision (fallback)"),
+    # No optional vendor SDKs required — OpenRouter and Groq use requests (HTTP).
 ]
 
 
@@ -243,8 +241,8 @@ def write_deployment_log(
             "platform": diagnostics.get("platform", ""),
             "all_required_met": deps.get("all_required_met", False),
             "missing_required": deps.get("missing_required", []),
-            "provider": os.environ.get("MODEL_PROVIDER", "not_set"),
-            "vision_model": os.environ.get("VISION_MODEL", "not_set"),
+            "provider": "openrouter" if os.environ.get("OPENROUTER_API_KEY") else "not_set",
+            "vision_model": os.environ.get("OPENROUTER_MODEL_PRIMARY", "not_set"),
             "deployment_mode": "streamlit_cloud" if os.environ.get("STREAMLIT_RUN") else "local",
             "timestamp": diagnostics.get("timestamp", ""),
         }

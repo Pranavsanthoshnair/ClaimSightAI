@@ -333,7 +333,7 @@ def main() -> int:
         settings = Settings(repo_root=repo)
         if settings.has_vision_model:
             model_service = ModelService(settings=settings)
-            print(f"[regression] Provider: {settings.model_provider}/{settings.vision_model}")
+            print(f"[regression] Provider chain: {settings.provider_summary}")
         else:
             print("[regression] No model configured — preflight-only mode")
     else:

@@ -14,7 +14,7 @@ Scenarios covered:
 7.  Wrong object part → WRONG_OBJECT_PART flag
 8.  Multi-image claim (2 images, both supporting)
 9.  Multi-part claim (screen + keyboard damage)
-10. Provider fallback (Gemini fails → OpenRouter succeeds)
+10. Provider fallback (Tier 1 fails → Tier 2/3 succeeds)
 11. Provider fallback (all tiers fail → preflight-only)
 12. Rate limit / 429 scenario → fallback to next tier
 13. CONTRADICTED — issue mismatch (CLAIM_MISMATCH flag)
