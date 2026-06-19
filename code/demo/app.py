@@ -114,8 +114,40 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stSidebar"] { background: #111827 !important; border-right: 1px solid #1F2937; }
 
-/* Hide Streamlit chrome */
-#MainMenu, footer, header { visibility: hidden; }
+/* Hide Streamlit chrome but keep sidebar toggle accessible */
+#MainMenu, footer { visibility: hidden; }
+header { visibility: hidden; }
+
+/* Sidebar expand/collapse arrow — always visible and styled */
+[data-testid="collapsedControl"] {
+  visibility: visible !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  position: fixed !important;
+  top: 50% !important;
+  left: 0 !important;
+  transform: translateY(-50%) !important;
+  width: 24px !important;
+  height: 56px !important;
+  background: #1F2937 !important;
+  border: 1px solid #374151 !important;
+  border-left: none !important;
+  border-radius: 0 10px 10px 0 !important;
+  cursor: pointer !important;
+  z-index: 9999 !important;
+  transition: background 0.2s, width 0.2s !important;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.4) !important;
+}
+[data-testid="collapsedControl"]:hover {
+  background: #374151 !important;
+  width: 30px !important;
+}
+[data-testid="collapsedControl"] svg {
+  color: #6366F1 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
 .block-container { padding: 1.5rem 2rem 4rem; max-width: 1280px; margin: 0 auto; }
 
 /* ── Topbar ── */
