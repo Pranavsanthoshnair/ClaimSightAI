@@ -163,9 +163,12 @@ def _select_requirements(
     claim_object: str,
     claimed_issue: str,
     claimed_part: str,
-    is_multi_part: bool,
 ) -> list[EvidenceRequirement]:
-    """Filter requirements to those applicable to this claim."""
+    """Filter requirements to those applicable to this claim.
+
+    REQ_GENERAL_MULTI_IMAGE is included for all claims with 2+ images;
+    the per-requirement evaluator handles single-image claims correctly.
+    """
     selected: list[EvidenceRequirement] = []
 
     for req in requirements:
@@ -173,11 +176,9 @@ def _select_requirements(
         if req.claim_object not in ("all", claim_object):
             continue
 
-        # REQ_GENERAL_MULTI_IMAGE: only applies to multi-part / multi-image claims
-        if req.requirement_id == "REQ_GENERAL_MULTI_IMAGE" and not is_multi_part:
-            continue
-
         # applies_to filter: match against claim issue + part
+        # REQ_GENERAL_MULTI_IMAGE is included if applies_to matches;
+        # the evaluator handles the multi-image check at evaluation time.
         if _applies_to_matches(req.applies_to, claimed_issue, claimed_part):
             selected.append(req)
 
@@ -265,7 +266,7 @@ def _eval_multi_image(inp: EvidenceStandardInput, req: EvidenceRequirement) -> R
     """REQ_GENERAL_MULTI_IMAGE: at least one image must show the claimed part."""
     satisfied = inp.object_part_visible and inp.valid_image_count > 0
     gap = "" if satisfied else (
-        "For multi-part claims, at least one image must clearly show the claimed object part."
+        "At least one submitted image must clearly show the claimed object part."
     )
     return RequirementEvaluation(
         requirement_id=req.requirement_id,
@@ -567,7 +568,6 @@ class EvidenceStandardsEngine:
             inp.claim_object,
             inp.claimed_issue,
             inp.claimed_part,
-            inp.is_multi_part,
         )
         logger.debug(
             "Selected %d requirement(s) for %s / %s / %s",

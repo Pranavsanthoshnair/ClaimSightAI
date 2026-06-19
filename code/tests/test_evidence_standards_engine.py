@@ -311,9 +311,16 @@ class TestMultiPartRequirement:
         assert "REQ_GENERAL_MULTI_IMAGE" in result.matched_requirement_ids
 
     def test_single_part_excludes_multi_image_req(self, engine):
-        inp = _make_inp(is_multi_part=False)
+        """Single-part claims with >=2 images get REQ_GENERAL_MULTI_IMAGE.
+
+        After the BUG C fix, the multi-part filter was removed from
+        _select_requirements — the requirement is now selected for any claim
+        whose ``applies_to`` field matches, regardless of is_multi_part.
+        The evaluator checks image count at evaluation time.
+        """
+        inp = _make_inp(is_multi_part=False, total_image_count=2, valid_image_count=2)
         result = engine.evaluate(inp)
-        assert "REQ_GENERAL_MULTI_IMAGE" not in result.matched_requirement_ids
+        assert "REQ_GENERAL_MULTI_IMAGE" in result.matched_requirement_ids
 
 
 # ---------------------------------------------------------------------------

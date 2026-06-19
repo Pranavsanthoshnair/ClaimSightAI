@@ -284,7 +284,12 @@ def _collect_multi_parts(
     primary_part: ObjectPart,
     claim_object: ClaimObject,
 ) -> list[ObjectPart]:
-    """Return any secondary parts mentioned alongside the primary claim part."""
+    """Return any secondary parts mentioned alongside the primary claim part.
+
+    Excludes BODY as a secondary part — it is an ambiguous fallback for
+    'bumper' and should not trigger a multi-part classification on its own.
+    """
+    _AMBIGUOUS_FALLBACKS = {ObjectPart.BODY}  # too generic to count as a real secondary part
     part_map = _PART_KEYWORDS.get(claim_object, {})
     extras: list[ObjectPart] = []
     for keyword, part in sorted(part_map.items(), key=lambda kv: -len(kv[0])):
@@ -293,6 +298,7 @@ def _collect_multi_parts(
             and not _is_negated(keyword, norm_text)
             and part != primary_part
             and part not in extras
+            and part not in _AMBIGUOUS_FALLBACKS
         ):
             extras.append(part)
     return extras

@@ -61,9 +61,35 @@ def _tiny_jpeg_bytes() -> bytes:
         )
 
 
-def _make_tmp_image(tmp_path: Path, name: str = "img_1.jpg") -> Path:
+def _make_tmp_image(tmp_path: Path, name: str = "img_1.jpg",
+                    check_size: int = 4, brightness: int = 0) -> Path:
+    """Create a checkerboard image with high Laplacian variance (>blur threshold).
+
+    A uniform-color image triggers preflight blur detection (Laplacian variance
+    < 80 → BLURRY_IMAGE flag).  The bug-B fix makes BLURRY_IMAGE a blocking flag,
+    which would exclude the image from aggregation.  This helper produces a
+    high-frequency checkerboard with variance well above the threshold.
+
+    Parameters
+    ----------
+    check_size : int
+        Size of each checkerboard square.  Vary to create distinct images.
+    brightness : int
+        Offset added to all pixel values (0-127) for visual distinction.
+    """
     p = tmp_path / name
-    p.write_bytes(_tiny_jpeg_bytes())
+    try:
+        from PIL import Image
+        img = Image.new("RGB", (100, 100))
+        pixels = img.load()
+        for x in range(100):
+            for y in range(100):
+                base = 240 if ((x // check_size) + (y // check_size)) % 2 == 0 else 16
+                v = min(255, max(0, base + brightness))
+                pixels[x, y] = (v, v, v)
+        img.save(p, format="JPEG")
+    except ImportError:
+        p.write_bytes(_tiny_jpeg_bytes())
     return p
 
 
@@ -183,17 +209,23 @@ class TestPartialSupport:
         try:
             from PIL import Image as PILImage
             paths = []
-            colors = [(180, 30, 30), (30, 180, 30), (30, 30, 180)]
-            for i, color in enumerate(colors, 1):
+            # Different checkerboard sizes → different byte content
+            for i, cs in enumerate([3, 5, 7], 1):
                 p = tmp_path / f"img_{i}.jpg"
                 buf = io.BytesIO()
-                PILImage.new("RGB", (100, 100), color=color).save(buf, format="JPEG")
+                img = PILImage.new("RGB", (100, 100))
+                pixels = img.load()
+                for x in range(100):
+                    for y in range(100):
+                        v = 240 if ((x // cs) + (y // cs)) % 2 == 0 else 16
+                        pixels[x, y] = (v, v, v)
+                img.save(buf, format="JPEG")
                 p.write_bytes(buf.getvalue())
                 paths.append(p)
         except ImportError:
-            paths = [_make_tmp_image(tmp_path, f"img_{i}.jpg") for i in range(1, 4)]
-            # Without PIL we can't make distinct images; skip the cache-distinguishing test
-            pytest.skip("Pillow required for distinct-image caching test")
+            paths = [_make_tmp_image(tmp_path, f"img_{i}.jpg", check_size=s)
+                     for i, s in zip(range(1, 4), (3, 5, 7))]
+            # Without PIL, images differ by checkboard pattern; cache keys are distinct
 
         mock_svc = MagicMock()
         mock_svc.inspect_image.side_effect = [

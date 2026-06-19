@@ -396,7 +396,7 @@ def _aggregate(
             if f not in all_quality_flags:
                 all_quality_flags.append(f)
 
-        if not a.readable:
+        if not a.valid_image:
             continue
 
         valid_analyses.append(a)
@@ -812,15 +812,14 @@ class VisionReviewAgent:
                 claim_object, claimed_part, claimed_issue,
             )
 
-        raw = self._call_vlm(image_id, path, image_bytes, claim_object, claimed_part, claimed_issue)
+        data = self._call_vlm(image_id, path, image_bytes, claim_object, claimed_part, claimed_issue)
 
-        if raw is None:
+        if data is None:
             logger.warning(
                 "VLM returned None for %s — all provider tiers failed. "
                 "Falling back to preflight-only result.",
                 image_id,
             )
-            # VLM failed — return conservative preflight-only result
             return self._preflight_only_result(
                 image_id, path,
                 preflight_flags + [RiskFlag.MANUAL_REVIEW_REQUIRED],
@@ -828,20 +827,8 @@ class VisionReviewAgent:
                 claim_object, claimed_part, claimed_issue,
             )
 
-        logger.info("VLM response received for %s: length=%d preview=%r",
-                    image_id, len(str(raw)), str(raw)[:120])
-
-        # --- Step 4: parse, store in cache, return
-        try:
-            data = _parse_vlm_json(raw)
-        except (json.JSONDecodeError, ValueError) as exc:
-            logger.warning("Failed to parse VLM response for %s: %s", image_id, exc)
-            return self._preflight_only_result(
-                image_id, path,
-                preflight_flags + [RiskFlag.MANUAL_REVIEW_REQUIRED],
-                width, height, blur,
-                claim_object, claimed_part, claimed_issue,
-            )
+        logger.info("VLM response received for %s: keys=%s",
+                    image_id, list(data.keys()))
 
         self._cache[cache_key] = data
         return _coerce_per_image(data, image_id, path, preflight_flags, width, height, blur)
@@ -854,8 +841,14 @@ class VisionReviewAgent:
         claim_object: ClaimObject,
         claimed_part: ObjectPart,
         claimed_issue: IssueType,
-    ) -> Any | None:
-        """Call the vision model with one retry on JSON parse failure."""
+    ) -> dict[str, Any] | None:
+        """Call the vision model, retry on API error OR JSON parse failure.
+
+        Tries up to 2 attempts.  Each attempt calls ``inspect_image()`` which
+        internally runs the 3-tier fallback chain (Gemini → Qwen → Llama).
+        If the raw response is not valid JSON, the attempt is retried.
+        Returns ``None`` when all attempts and all tiers have been exhausted.
+        """
         prompt = VISION_EVIDENCE_USER.format(
             claim_object=claim_object,
             claimed_part=claimed_part,
@@ -872,7 +865,9 @@ class VisionReviewAgent:
                     prompt=prompt,
                     image_bytes=image_bytes,
                 )
-                return raw
+                if raw is None:
+                    continue
+                return _parse_vlm_json(raw)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "VLM call attempt %d failed for %s: %s", attempt + 1, image_id, exc

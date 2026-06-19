@@ -426,6 +426,22 @@ class DecisionService:
                 # supporting image — the damage is real, just a taxonomy diff
             return ClaimStatus.SUPPORTED, extra
 
+        # Rule 5b: issue visible but wrong type, no supporting IDs → CONTRADICTED
+        if (
+            vision.issue_visible
+            and not vision.supporting_image_ids
+            and vision.object_part_visible
+        ):
+            claimed = parsed_claim.claimed_issue
+            visible = vision.issue_type
+            if (
+                claimed != IssueType.UNKNOWN
+                and visible != IssueType.UNKNOWN
+                and claimed != visible
+            ):
+                extra.append(RiskFlag.CLAIM_MISMATCH)
+                return ClaimStatus.CONTRADICTED, extra
+
         # Rule 6: part visible but damage absent / wrong
         if vision.object_part_visible and not vision.issue_visible:
             extra.append(RiskFlag.DAMAGE_NOT_VISIBLE)

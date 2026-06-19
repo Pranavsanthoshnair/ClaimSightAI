@@ -136,6 +136,7 @@ class PerImageAnalysis(BaseModel):
             RiskFlag.LOW_LIGHT_OR_GLARE,
             RiskFlag.WRONG_OBJECT,
             RiskFlag.POSSIBLE_MANIPULATION,
+            RiskFlag.MANUAL_REVIEW_REQUIRED,
         }
         if not self.readable:
             self.valid_image = False
