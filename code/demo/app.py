@@ -94,7 +94,7 @@ st.set_page_config(
     page_title="ClaimSight AI",
     page_icon="🔎",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── Global CSS ───────────────────────────────────────────────────────────────
@@ -114,47 +114,24 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stSidebar"] { background: #111827 !important; border-right: 1px solid #1F2937; }
 
-/* ── Hide Streamlit chrome surgically (NOT the whole header) ── */
+/* ── Hide Streamlit chrome ── */
 #MainMenu, footer { visibility: hidden; }
+[data-testid="stToolbar"]      { visibility: hidden; }
+[data-testid="stDecoration"]   { display: none; }
+[data-testid="stStatusWidget"] { visibility: hidden; }
 
-/* Hide specific toolbar children — NOT the whole header */
-[data-testid="stToolbar"]          { visibility: hidden; }
-[data-testid="stDecoration"]       { display: none; }
-[data-testid="stStatusWidget"]     { visibility: hidden; }
-
-/* ── Sidebar expand arrow — naturally visible (no header:hidden fight) ── */
-[data-testid="collapsedControl"] {
-  visibility: visible !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  position: fixed !important;
-  top: 50vh !important;
-  left: 0 !important;
-  transform: translateY(-50%) !important;
-  z-index: 99999 !important;
-  width: 22px !important;
-  height: 52px !important;
-  background: linear-gradient(180deg, #4F46E5, #6366F1) !important;
-  border: none !important;
-  border-radius: 0 10px 10px 0 !important;
-  cursor: pointer !important;
-  box-shadow: 2px 0 12px rgba(99,102,241,0.5) !important;
-  transition: width 0.2s ease, box-shadow 0.2s ease !important;
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+  background: #0D1117 !important;
+  border-right: 1px solid #1F2937 !important;
 }
-[data-testid="collapsedControl"]:hover {
-  width: 30px !important;
-  box-shadow: 2px 0 20px rgba(99,102,241,0.9) !important;
-}
-[data-testid="collapsedControl"] svg {
-  fill: #fff !important;
-  color: #fff !important;
-  width: 14px !important;
-  height: 14px !important;
-}
-/* In-sidebar collapse button */
-[data-testid="stSidebarCollapseButton"] button {
+/* Native sidebar collapse button — keep visible and styled */
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarCollapseButton"] button:hover {
+  background: #1F2937 !important;
+  border-radius: 8px !important;
   color: #6366F1 !important;
+  border: 1px solid #374151 !important;
 }
 .block-container { padding: 1.5rem 2rem 4rem; max-width: 1280px; margin: 0 auto; }
 
