@@ -62,8 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
 def launch_ui() -> None:
     """Start the Streamlit demo app."""
     app_path = Path(__file__).resolve().parent / "demo" / "app.py"
-    print(f"🚀  Starting ClaimSight AI UI → {app_path}")
-    print("   Open http://localhost:8501 in your browser  (Ctrl+C to stop)\n")
+    print(f"[UI] Starting ClaimSight AI -> {app_path}")
+    print("     Open http://localhost:8501 in your browser  (Ctrl+C to stop)\n")
     subprocess.run(
         [sys.executable, "-m", "streamlit", "run", str(app_path),
          "--server.headless", "false"],
@@ -80,9 +80,9 @@ def run_pipeline(args: argparse.Namespace) -> None:
     input_path  = args.input  or Path("dataset/claims.csv")
     output_path = args.output or Path("output.csv")
 
-    print(f"📋  Input  : {input_path}")
-    print(f"💾  Output : {output_path}")
-    print(f"🗄️  Cache  : {'disabled' if args.no_cache else 'enabled'}\n")
+    print(f"[INPUT]  {input_path}")
+    print(f"[OUTPUT] {output_path}")
+    print(f"[CACHE]  {'disabled' if args.no_cache else 'enabled'}\n")
 
     settings = Settings(cache_enabled=not args.no_cache)
     pipeline = ClaimReviewPipeline(settings=settings)
