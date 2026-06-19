@@ -27,7 +27,7 @@ from __future__ import annotations
 # Global version — shared across all prompts in this module
 # ---------------------------------------------------------------------------
 
-PROMPT_VERSION: str = "v5"
+PROMPT_VERSION: str = "v6"
 
 # ---------------------------------------------------------------------------
 # Claim extraction prompt
@@ -145,6 +145,16 @@ supports_claim logic (STRICT):
 - If ANY of the three is absent, unclear, or shows a completely unrelated scene → false
 - When damage is visible but it is different from what was claimed → false AND
   add CLAIM_MISMATCH to quality_flags
+
+PACKAGE DAMAGE GUIDANCE (apply when claim_object is package):
+- Torn packaging: look for rips, tears, or holes in the box/envelope material.
+  Cardboard tears show raw fibre; plastic tears show ragged edges.
+- Crushed packaging: look for collapsed corners, buckled walls, or flattened
+  panels. Creasing alone is normal; structural deformation is damage.
+- Damaged contents: look through tears/openings for visibly broken or wet items.
+  If packaging is intact but claim is about contents, that is a claim mismatch.
+- Wet/stained packaging: look for watermarks, dark patches, or discolouration
+  on the exterior material consistent with liquid exposure.
 
 ABSOLUTE RULES:
 - Return ONLY valid JSON. No markdown fences, no prose outside the JSON.

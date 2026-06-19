@@ -386,19 +386,60 @@ def chip(text: str, color: str = "slate") -> str:
     return f'<span class="chip chip-{color}">{text}</span>'
 
 
+# ── Human-friendly label maps ────────────────────────────────────────────────
+_VERDICT_LABELS = {
+    "supported":             "Claim Verified",
+    "contradicted":          "Claim Does Not Match Evidence",
+    "not_enough_information": "More Evidence Needed",
+}
+_VERDICT_EXPLANATIONS = {
+    "supported": (
+        "The uploaded images clearly show damage that matches the reported claim. "
+        "The affected area was identified and the damage type confirmed."
+    ),
+    "contradicted": (
+        "The images do not show the damage described in the claim. "
+        "The affected area was visible, but the reported damage was not found."
+    ),
+    "not_enough_information": (
+        "The submitted evidence is insufficient to confirm or deny the reported damage. "
+        "Additional photos or clearer images may be required."
+    ),
+}
+_STAGE_LABELS = {
+    "Claim Extraction":  "Understanding the Claim",
+    "Vision Review":     "Image Analysis",
+    "Evidence Standards": "Evidence Verification",
+    "Decision Engine":   "Final Decision",
+}
+_SUFFICIENCY_LABELS = {
+    "fully_met":     "Evidence Verified",
+    "partially_met": "Evidence Incomplete",
+    "not_met":       "Evidence Missing",
+    "unverifiable":  "Unable to Verify",
+}
+
+def _humanise_image_id(raw_id: str, index: int) -> str:
+    """Convert temp filenames like tmp2m1_e9g_ to 'Image #1'."""
+    if raw_id.startswith("tmp") or raw_id.startswith("tmp"):
+        return f"Image #{index + 1}"
+    # If it looks like a real meaningful name, keep it short
+    return raw_id if len(raw_id) <= 20 else f"Image #{index + 1}"
+
 def verdict_banner(status: str, justification: str):
     cfg = {
-        "supported":            ("✓", "Claim Verified", "verdict-supported",    "SUPPORTED"),
-        "contradicted":         ("✗", "Claim Contradicted","verdict-contradicted","CONTRADICTED"),
-        "not_enough_information":("~", "Insufficient Evidence","verdict-nei",   "NOT ENOUGH INFORMATION"),
+        "supported":             ("✓", "Claim Verified",                   "verdict-supported",    "VERIFIED"),
+        "contradicted":          ("✗", "Claim Does Not Match Evidence",    "verdict-contradicted", "CONTRADICTED"),
+        "not_enough_information": ("~", "More Evidence Needed",             "verdict-nei",          "MORE INFO NEEDED"),
     }
-    icon, title, css, label = cfg.get(status, ("?", status.upper(), "verdict-nei", status.upper()))
+    icon, title, css, label = cfg.get(status, ("?", status.replace("_"," ").title(), "verdict-nei", status.upper()))
+    explanation = _VERDICT_EXPLANATIONS.get(status, justification)
     st.markdown(f"""
     <div class="verdict-banner {css}">
       <div class="v-icon">{icon}</div>
       <div class="v-label">CLAIM DECISION</div>
       <div class="v-title">{title}</div>
-      <p class="v-reason">{justification[:280]}</p>
+      <p class="v-reason">{explanation}</p>
     </div>""", unsafe_allow_html=True)
 
 
@@ -421,7 +462,7 @@ def section_title(icon: str, text: str):
 
 def success_card_html(verdict: str, confidence: str, provider: str, latency_ms: int) -> str:
     icon = {"supported": "✓", "contradicted": "✗", "not_enough_information": "~"}.get(verdict, "?")
-    status_label = {"supported": "Claim Verified", "contradicted": "Claim Contradicted", "not_enough_information": "Insufficient Evidence"}.get(verdict, verdict.replace("_", " ").title())
+    status_label = _VERDICT_LABELS.get(verdict, verdict.replace("_", " ").title())
     color = "green" if verdict == "supported" else "red" if verdict == "contradicted" else "amber"
     return f"""
     <div class="cs-success-card" style="border-color:rgba({','.join({'green':'16,185,129','red':'239,68,68','amber':'245,158,11'}.get(color,'100,116,139'))},0.4)">
@@ -429,9 +470,8 @@ def success_card_html(verdict: str, confidence: str, provider: str, latency_ms: 
       <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#64748B">CLAIM DECISION</div>
       <div style="font-size:1.8rem;font-weight:800;letter-spacing:-0.5px;margin:0.25rem 0;color:#{({'green':'10B981','red':'EF4444','amber':'F59E0B'}.get(color,'94A3B8'))}">{status_label}</div>
       <div class="cs-success-metrics">
-        <div class="cs-success-metric"><div class="sm-label">Confidence</div><div class="sm-value">{confidence}</div></div>
-        <div class="cs-success-metric"><div class="sm-label">Provider</div><div class="sm-value">{provider}</div></div>
         <div class="cs-success-metric"><div class="sm-label">Latency</div><div class="sm-value">{latency_ms}ms</div></div>
+        <div class="cs-success-metric"><div class="sm-label">AI Model</div><div class="sm-value">Active ✓</div></div>
       </div>
     </div>"""
 
@@ -592,11 +632,11 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
 
 def show_progress(placeholder, provider: str = ""):
     steps = [
-        ("🔍", "Claim Extraction",     "Parsing conversation … extracting object, part, issue type",  0.20),
-        ("👁", "Vision Analysis",       f"Per-image VLM review via {provider or 'preflight mode'}",    0.45),
-        ("📋", "Evidence Validation",   "Rule-based sufficiency engine · CSV-driven requirements",    0.68),
-        ("⚖️",  "Risk Assessment",       "Decision rules · quality flags · user history",              0.87),
-        ("✓",  "Decision Generation",   "Supported / Contradicted / Not Enough Information",         1.00),
+        ("🔍", "Understanding the Claim",  "Reading the conversation and identifying the reported damage…", 0.20),
+        ("👁",  "Analysing Images",          "AI is reviewing the submitted evidence photos…",               0.45),
+        ("📋", "Verifying Evidence",        "Checking if the evidence meets the required standards…",       0.68),
+        ("⚖️",  "Assessing Risk",            "Reviewing image quality and claim history…",                   0.87),
+        ("✓",  "Finalising Decision",       "Generating the claim decision…",                              1.00),
     ]
     for icon, name, detail, pct in steps:
         with placeholder.container():
@@ -857,7 +897,6 @@ with st.sidebar:
     ]
     all_model_slugs = [s for s, *_ in _ALL_MODELS]
 
-    # Default to the currently configured primary
     try:
         _default_idx = all_model_slugs.index(_configured_primary)
     except ValueError:
@@ -872,18 +911,22 @@ with st.sidebar:
     )
     _selected_slug = all_model_slugs[all_model_labels.index(_selected_label)]
 
-    # Apply selection to session settings
     if _s_side is not None and _selected_slug != _configured_primary:
         try:
             import os as _os2
             _os2.environ["OPENROUTER_MODEL_PRIMARY"] = _selected_slug
             from config import Settings as _CfgNew
             st.session_state["_settings"] = _CfgNew(repo_root=_REPO_DIR)
-            st.caption(f"Active: {_selected_slug.split('/')[-1]}")
         except Exception:
             pass
-    elif _s_side is not None:
-        st.caption(f"Active: {_selected_slug.split('/')[-1]}")
+
+    # ── Debug mode toggle ──────────────────────────────────────────
+    st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
+    st.toggle(
+        "🔬 Debug Mode",
+        key="debug_mode",
+        help="Show internal technical details: model names, requirement IDs, raw confidence scores, image IDs, and provider information.",
+    )
 
 
 # ── Session state hardening ───────────────────────────────────────────────────
@@ -1141,45 +1184,68 @@ with tab_results:
         esm = str(out.evidence_standard_met).lower() == "true"
         conf_pct = f"{vision.confidence * 100:.0f}%"
 
+        _debug = st.session_state.get("debug_mode", False)
+        # Human-friendly sufficiency label
+        _suf_label = _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), str(evidence.sufficiency_level).replace("_"," ").title())
         kpis_html = '<div class="kpi-grid">'
-        kpis_html += kpi("Claim Status",    status.replace("_", " ").title(),          "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
-        kpis_html += kpi("Issue Type",      str(out.issue_type).replace("_", " ").title(), "", "indigo")
-        kpis_html += kpi("Object Part",     str(out.object_part).replace("_", " ").title(), "", "indigo")
+        kpis_html += kpi("Decision",        _VERDICT_LABELS.get(status, status.replace("_"," ").title()), "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
+        kpis_html += kpi("Damage Found",    str(out.issue_type).replace("_", " ").title(), "", "indigo")
+        kpis_html += kpi("Location",        str(out.object_part).replace("_", " ").title(), "", "indigo")
         kpis_html += kpi("Severity",        str(out.severity).title(),                 "", severity_color)
-        kpis_html += kpi("Evidence Std.",   "Met" if esm else "Not Met",               "", "green" if esm else "red")
+        kpis_html += kpi("Evidence Status", _suf_label,                                "", "green" if esm else "red")
         lat_ms = r.get("latency_ms", 0)
-        kpis_html += kpi("Confidence",      conf_pct,                                  provider, "indigo")
-        kpis_html += kpi("Latency", f"{lat_ms}ms" if lat_ms else "—", "", "indigo")
+        kpis_html += kpi("Latency",         f"{lat_ms}ms" if lat_ms else "—",           "", "indigo")
+        if _debug:
+            kpis_html += kpi("Confidence",  conf_pct, provider, "indigo")
         kpis_html += '</div>'
         st.markdown(kpis_html, unsafe_allow_html=True)
 
-        # ── Evidence standard reason ───────────────────────────────
+        # ── Evidence assessment ────────────────────────────────────
         section_title("◈", "Evidence Assessment")
         col_e1, col_e2 = st.columns([1, 1])
+        _suf_display = _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), str(evidence.sufficiency_level).replace("_"," ").title())
         with col_e1:
+            _ev_detail = str(out.evidence_standard_met_reason)[:300] if _debug else ""
             st.markdown(f"""
             <div class="cs-card">
-              <div class="cs-card-title">EVIDENCE STANDARD</div>
+              <div class="cs-card-title">EVIDENCE STATUS</div>
               <div style="margin-bottom:0.5rem">
-                {'<span class="chip chip-green">● MET</span>' if esm else '<span class="chip chip-red">● NOT MET</span>'}
-                <span style="font-size:0.75rem;color:#64748B;margin-left:8px">{evidence.sufficiency_level}</span>
+                {'<span class="chip chip-green">● Verified</span>' if esm else '<span class="chip chip-red">● Not Verified</span>'}
+                <span style="font-size:0.75rem;color:#64748B;margin-left:8px">{_suf_display}</span>
               </div>
-              <div style="font-size:0.8rem;color:#94A3B8;line-height:1.6">{str(out.evidence_standard_met_reason)[:300]}</div>
+              <div style="font-size:0.8rem;color:#94A3B8;line-height:1.6">{_ev_detail}</div>
             </div>""", unsafe_allow_html=True)
         with col_e2:
             flags_raw = str(out.risk_flags)
             flags = [f.strip() for f in flags_raw.split(";") if f.strip() and f.strip() != "none"]
             flag_danger = {"possible_manipulation", "wrong_object", "text_instruction_present", "non_original_image"}
             flag_warn   = {"blurry_image", "cropped_or_obstructed", "low_light_or_glare", "wrong_angle", "user_history_risk", "manual_review_required", "damage_not_visible"}
+            # User-friendly flag labels
+            _flag_friendly = {
+                "damage_not_visible": "Damage not visible",
+                "wrong_object": "Wrong item in image",
+                "wrong_object_part": "Different area shown",
+                "blurry_image": "Image quality: blurry",
+                "low_light_or_glare": "Image quality: lighting",
+                "wrong_angle": "Image quality: angle",
+                "cropped_or_obstructed": "Image quality: obstructed",
+                "manual_review_required": "Manual review needed",
+                "claim_mismatch": "Damage type mismatch",
+                "text_instruction_present": "⚠️ Suspicious text in image",
+                "non_original_image": "⚠️ Possible non-original image",
+                "possible_manipulation": "⚠️ Possible manipulation",
+                "user_history_risk": "Elevated claim history",
+            }
             chips_html = ""
             for f in (flags or ["none"]):
                 c = "red" if f in flag_danger else "amber" if f in flag_warn else "slate"
-                chips_html += chip(f.replace("_", " "), c)
+                display_f = _flag_friendly.get(f, f.replace("_", " ").title()) if not _debug else f.replace("_", " ")
+                chips_html += chip(display_f, c)
             st.markdown(f"""
             <div class="cs-card">
-              <div class="cs-card-title">RISK FLAGS</div>
+              <div class="cs-card-title">QUALITY SIGNALS</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">{chips_html}</div>
-              {'<div style="margin-top:1rem;font-size:0.75rem;color:#64748B">No risk flags detected</div>' if not flags else ''}
+              {'<div style="margin-top:1rem;font-size:0.75rem;color:#64748B">No issues detected</div>' if not flags else ''}
             </div>""", unsafe_allow_html=True)
 
         # ── Image evidence cards ───────────────────────────────────
@@ -1189,10 +1255,10 @@ with tab_results:
             img_cols = st.columns(min(len(img_bytes_map), 3))
             for idx, (fname, raw_bytes) in enumerate(img_bytes_map.items()):
                 img_id = Path(fname).stem
+                display_id = _humanise_image_id(img_id, idx)
                 is_supporting = img_id in supporting_ids
                 col = img_cols[idx % 3]
 
-                # Find per-image analysis
                 per_img = next((a for a in vision.per_image if a.image_id == img_id), None)
                 desc = per_img.description if per_img and per_img.description else "—"
                 conf_img = f"{per_img.confidence*100:.0f}%" if per_img else "—"
@@ -1200,33 +1266,43 @@ with tab_results:
                 with col:
                     st.image(raw_bytes, use_container_width=True)
                     css_cls = "supporting" if is_supporting else "not-support"
-                    badge = '<span class="chip chip-green">✓ Supporting</span>' if is_supporting else '<span class="chip chip-slate">Not primary</span>'
+                    badge = '<span class="chip chip-green">✓ Supports Claim</span>' if is_supporting else '<span class="chip chip-slate">Does Not Support</span>'
+                    _debug_id = f'<div style="font-size:0.6rem;color:#374151;margin-top:4px">{img_id}</div>' if _debug else ""
+                    _conf_row = f'<div style="margin-top:6px;font-size:0.68rem;color:#64748B">Confidence: {conf_img}</div>' if _debug else ""
                     st.markdown(f"""
                     <div class="img-card {css_cls}">
                       <div class="img-card-body">
-                        <div class="img-card-id">{img_id}</div>
+                        <div class="img-card-id">{display_id}</div>
                         {badge}
                         <div class="img-card-desc">{desc[:120]}</div>
-                        <div style="margin-top:6px;font-size:0.68rem;color:#64748B">Confidence: {conf_img}</div>
+                        {_conf_row}
+                        {_debug_id}
                       </div>
                     </div>""", unsafe_allow_html=True)
 
         # ── Explainability section ─────────────────────────────────
-        section_title("💡", "AI Reasoning")
-        expl_text = str(out.claim_status_justification)
+        section_title("💡", "What We Found")
+        expl_text = _VERDICT_EXPLANATIONS.get(status, str(out.claim_status_justification))
         obs_parts = []
-        for img_analysis in vision.per_image:
+        for _pi_idx, img_analysis in enumerate(vision.per_image):
             if hasattr(img_analysis, "description") and img_analysis.description:
-                obs_parts.append(f"[{img_analysis.image_id}] {img_analysis.description}")
-        obs_str = " • ".join(obs_parts) if obs_parts else "Visual content requires model inspection."
+                _pi_label = _humanise_image_id(img_analysis.image_id, _pi_idx)
+                obs_parts.append(f"{_pi_label}: {img_analysis.description}")
+        obs_str = " • ".join(obs_parts) if obs_parts else "No image observations available."
+
+        _rationale_detail = ""
+        if _debug:
+            _raw_just = str(out.claim_status_justification)
+            _rationale_detail = f'<div class="cs-divider"></div><div class="cs-card-title" style="margin-top:1rem">INTERNAL JUSTIFICATION</div><div style="font-size:0.78rem;color:#64748B;line-height:1.6">{_raw_just}</div>'
 
         st.markdown(f"""
         <div class="cs-card">
-          <div class="cs-card-title">DECISION RATIONALE</div>
+          <div class="cs-card-title">SUMMARY</div>
           <div style="font-size:0.88rem;color:#E2E8F0;line-height:1.7;margin-bottom:1rem">{expl_text}</div>
           <div class="cs-divider"></div>
-          <div class="cs-card-title" style="margin-top:1rem">IMAGE-GROUNDED OBSERVATIONS</div>
+          <div class="cs-card-title" style="margin-top:1rem">IMAGE OBSERVATIONS</div>
           <div style="font-size:0.82rem;color:#94A3B8;line-height:1.7">{obs_str}</div>
+          {_rationale_detail}
         </div>""", unsafe_allow_html=True)
 
 
@@ -1264,12 +1340,12 @@ with tab_trace:
         col_pipe, col_detail = st.columns([1, 2], gap="large")
 
         with col_pipe:
-            # Animated pipeline diagram
+            _trace_debug = st.session_state.get("debug_mode", False)
             steps_done = [
-                ("1", "Claim Extraction",   str(extraction.claimed_object_part).replace("_"," ").title()),
-                ("2", "Vision Review",      f"{len(vision.per_image)} image(s) · conf {vision.confidence*100:.0f}%"),
-                ("3", "Evidence Standards", evidence.sufficiency_level.replace("_"," ").title()),
-                ("4", "Decision Engine",    str(out.claim_status).replace("_"," ").title()),
+                ("1", "Understanding the Claim",  str(extraction.claimed_object_part).replace("_"," ").title()),
+                ("2", "Image Analysis",            f"{len(vision.per_image)} image(s) analysed"),
+                ("3", "Evidence Verification",     _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), evidence.sufficiency_level.replace("_"," ").title())),
+                ("4", "Final Decision",            _VERDICT_LABELS.get(str(out.claim_status), str(out.claim_status).replace("_"," ").title())),
             ]
             pipeline_html = '<div class="cs-card"><div class="cs-card-title">PIPELINE EXECUTION</div><div class="pipeline">'
             for s, name, detail in steps_done:
@@ -1278,73 +1354,84 @@ with tab_trace:
             st.markdown(pipeline_html, unsafe_allow_html=True)
 
         with col_detail:
-            # Stage 1 detail
-            with st.expander("Stage 1 — Claim Extraction", expanded=True):
+            _dbg = st.session_state.get("debug_mode", False)
+
+            # Stage 1 — Understanding the Claim
+            with st.expander("Stage 1 — Understanding the Claim", expanded=True):
                 c1, c2 = st.columns(2)
                 c1.markdown(f"**Summary:**  \n{extraction.claim_summary}")
-                c1.markdown(f"**Claimed issue:** `{extraction.claimed_issue_type}`")
-                c1.markdown(f"**Claimed part:** `{extraction.claimed_object_part}`")
-                c2.markdown(f"**Confidence:** `{extraction.claim_confidence:.0%}`")
-                c2.markdown(f"**Multi-part:** `{extraction.is_multi_part}`")
-                c2.markdown(f"**Injection detected:** `{extraction.injection_detected}`")
+                c1.markdown(f"**Damage type:** {str(extraction.claimed_issue_type).replace('_',' ').title()}")
+                c1.markdown(f"**Location:** {str(extraction.claimed_object_part).replace('_',' ').title()}")
                 if extraction.injection_detected:
-                    st.warning("⚠️ Prompt injection attempt detected in conversation and neutralised.")
+                    st.warning("⚠️ Suspicious instruction detected in the conversation text and ignored.")
+                if _dbg:
+                    c2.markdown(f"**Confidence:** `{extraction.claim_confidence:.0%}`")
+                    c2.markdown(f"**Multi-part:** `{extraction.is_multi_part}`")
+                    c2.markdown(f"**Injection detected:** `{extraction.injection_detected}`")
 
-            # Stage 2 detail
-            with st.expander("Stage 2 — Vision Review", expanded=True):
+            # Stage 2 — Image Analysis
+            with st.expander("Stage 2 — Image Analysis", expanded=True):
                 v1, v2 = st.columns(2)
-                v1.markdown(f"**Object visible:** `{vision.object_visible}`")
-                v1.markdown(f"**Part visible:** `{vision.object_part_visible}`")
-                v1.markdown(f"**Issue visible:** `{vision.issue_visible}`")
-                v1.markdown(f"**Valid image:** `{vision.valid_image}`")
-                v2.markdown(f"**Best issue:** `{vision.issue_type}`")
-                v2.markdown(f"**Best part:** `{vision.object_part}`")
-                v2.markdown(f"**Severity:** `{vision.severity}`")
-                v2.markdown(f"**Confidence:** `{vision.confidence:.0%}`")
-                if vision.supporting_image_ids:
-                    st.markdown(f"**Supporting images:** `{', '.join(vision.supporting_image_ids)}`")
+                v1.markdown(f"**{'✅' if vision.object_visible else '❌'} Vehicle / item detected:** {'Yes' if vision.object_visible else 'No'}")
+                v1.markdown(f"**{'✅' if vision.object_part_visible else '❌'} Affected area identified:** {'Yes' if vision.object_part_visible else 'No'}")
+                v1.markdown(f"**{'✅' if vision.issue_visible else '❌'} Damage detected:** {'Yes' if vision.issue_visible else 'No'}")
+                v2.markdown(f"**Damage type found:** {str(vision.issue_type).replace('_',' ').title()}")
+                v2.markdown(f"**Area found:** {str(vision.object_part).replace('_',' ').title()}")
+                v2.markdown(f"**Severity:** {str(vision.severity).title()}")
                 if vision.reasoning:
                     st.caption(vision.reasoning)
                 if vision.per_image:
                     st.markdown("**Per-image breakdown:**")
-                    for img in vision.per_image:
-                        parts = ", ".join(p.value for p in img.visible_parts) or "none"
-                        issues = ", ".join(i.value for i in img.visible_issues) or "none"
-                        flags  = ", ".join(f.value for f in img.quality_flags) or "none"
+                    for _im_idx, img in enumerate(vision.per_image):
+                        _disp_id = _humanise_image_id(img.image_id, _im_idx)
+                        parts = ", ".join(p.value.replace("_"," ").title() for p in img.visible_parts) or "none"
+                        issues = ", ".join(i.value.replace("_"," ").title() for i in img.visible_issues) or "none"
                         support_icon = "✓" if img.supports_claim else "✗"
-                        st.markdown(
-                            f"- `{img.image_id}` {support_icon} · "
-                            f"parts: *{parts}* · issues: *{issues}* · "
-                            f"flags: *{flags}* · conf: {img.confidence:.0%}"
-                        )
+                        _line = f"- **{_disp_id}** {support_icon} · parts: *{parts}* · damage: *{issues}*"
+                        if _dbg:
+                            flags = ", ".join(f.value for f in img.quality_flags) or "none"
+                            _line += f" · flags: *{flags}* · conf: {img.confidence:.0%} · id: `{img.image_id}`"
+                        st.markdown(_line)
+                if _dbg:
+                    st.markdown(f"**AI Vision:** `AI Vision Analysis Active`")
+                    if vision.supporting_image_ids:
+                        st.markdown(f"**Supporting IDs (raw):** `{', '.join(vision.supporting_image_ids)}`")
+                    st.markdown(f"**Confidence:** `{vision.confidence:.0%}`")
 
-            # Stage 3 detail
-            with st.expander("Stage 3 — Evidence Standards", expanded=True):
+            # Stage 3 — Evidence Verification
+            with st.expander("Stage 3 — Evidence Verification", expanded=True):
                 esm_ok = str(evidence.evidence_standard_met).lower() == "true"
+                _suf_lbl = _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), str(evidence.sufficiency_level).replace("_"," ").title())
                 st.markdown(
-                    f"**Result:** {'✅ Met' if esm_ok else '❌ Not Met'} "
-                    f"(`{evidence.sufficiency_level}`)"
+                    f"**Result:** {'✅' if esm_ok else '❌'} **{_suf_lbl}**"
                 )
                 st.caption(evidence.evidence_standard_met_reason)
                 if evidence.per_requirement:
                     for req in evidence.per_requirement:
                         icon = "✅" if req.satisfied else "❌"
-                        st.markdown(f"{icon} `{req.requirement_id}` — *{req.applies_to}*")
+                        # Show REQ IDs only in debug mode
+                        if _dbg:
+                            st.markdown(f"{icon} `{req.requirement_id}` — *{req.applies_to}*")
+                        else:
+                            st.markdown(f"{icon} {req.applies_to}")
                         if not req.satisfied and req.gap_description:
-                            st.caption(f"    Gap: {req.gap_description}")
+                            st.caption(f"    ↳ {req.gap_description}")
 
-            # Stage 4 detail
-            with st.expander("Stage 4 — Decision Engine", expanded=True):
+            # Stage 4 — Final Decision
+            with st.expander("Stage 4 — Final Decision", expanded=True):
                 status = str(out.claim_status)
                 status_icon = {"supported": "✅", "contradicted": "❌"}.get(status, "⚠️")
-                st.markdown(f"### {status_icon} `{status}`")
-                st.info(str(out.claim_status_justification))
+                _friendly_status = _VERDICT_LABELS.get(status, status.replace("_"," ").title())
+                st.markdown(f"### {status_icon} {_friendly_status}")
+                st.info(_VERDICT_EXPLANATIONS.get(status, str(out.claim_status_justification)))
                 d1, d2 = st.columns(2)
-                d1.markdown(f"**Issue type:** `{out.issue_type}`")
-                d1.markdown(f"**Object part:** `{out.object_part}`")
-                d2.markdown(f"**Severity:** `{out.severity}`")
-                d2.markdown(f"**Risk flags:** `{out.risk_flags}`")
-                d2.markdown(f"**Supporting IDs:** `{out.supporting_image_ids}`")
+                d1.markdown(f"**Damage Found:** {str(out.issue_type).replace('_',' ').title()}")
+                d1.markdown(f"**Location:** {str(out.object_part).replace('_',' ').title()}")
+                d2.markdown(f"**Severity:** {str(out.severity).title()}")
+                if _dbg:
+                    d2.markdown(f"**Risk flags:** `{out.risk_flags}`")
+                    d2.markdown(f"**Supporting IDs:** `{out.supporting_image_ids}`")
+                    st.markdown(f"**Internal status:** `{status}`")
 
         # ── Footer ─────────────────────────────────────────────────
         st.markdown("""
@@ -1354,7 +1441,7 @@ with tab_trace:
             <strong style="color:#6366F1">ClaimSight AI</strong> · Multi-Modal Evidence Review
           </div>
           <div style="font-size:0.7rem;color:#374151">
-            Powered by OpenRouter (Qwen2.5-VL · Llama Vision · Pixtral Large) · Groq fallback · Pydantic schemas
+            AI Vision Analysis · Multi-Modal Evidence Review
           </div>
         </div>""", unsafe_allow_html=True)
 

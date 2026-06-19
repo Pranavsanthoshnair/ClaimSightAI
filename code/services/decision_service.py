@@ -384,15 +384,37 @@ class DecisionService:
         vision: VisionReviewResult,
         evidence: EvidenceStandardResult,
     ) -> tuple[ClaimStatus, list[RiskFlag]]:
-        """Apply decision rules and return (status, extra_risk_flags)."""
+        """Apply decision rules and return (status, extra_risk_flags).
+
+        Rule ordering (priority):
+          1. No valid image              → NOT_ENOUGH_INFORMATION
+          2a. Early contradiction check  → CONTRADICTED (before evidence gate)
+             Part IS visible but claimed damage is NOT → contradicted regardless
+             of evidence sufficiency, because the scene disproves the claim.
+          2b. Evidence standard not met  → NOT_ENOUGH_INFORMATION
+          3. Claimed object not visible  → NOT_ENOUGH_INFORMATION
+          4. Claimed part not visible    → NOT_ENOUGH_INFORMATION
+          5. Part + damage visible       → SUPPORTED
+          5b. Issue visible wrong type   → CONTRADICTED
+          6. Part visible, no damage     → CONTRADICTED
+          7. Fallback                    → NOT_ENOUGH_INFORMATION
+        """
         extra: list[RiskFlag] = []
 
-        # Rule 1: no valid images
+        # Rule 1: no valid images at all
         if not vision.valid_image:
             extra.append(RiskFlag.MANUAL_REVIEW_REQUIRED)
             return ClaimStatus.NOT_ENOUGH_INFORMATION, extra
 
-        # Rule 2: evidence standard not met (primary requirement failed)
+        # Rule 2a: EARLY CONTRADICTION — claimed part is clearly visible but
+        # the claimed damage is absent.  This is a contradiction regardless of
+        # whether the evidence standard was fully met, because the visual
+        # evidence *disproves* the claim rather than being insufficient.
+        if vision.object_part_visible and not vision.issue_visible:
+            extra.append(RiskFlag.DAMAGE_NOT_VISIBLE)
+            return ClaimStatus.CONTRADICTED, extra
+
+        # Rule 2b: evidence standard not met (and not already contradicted)
         if not evidence.evidence_standard_met:
             if evidence.sufficiency_level == SufficiencyLevel.UNVERIFIABLE:
                 extra.append(RiskFlag.MANUAL_REVIEW_REQUIRED)
@@ -400,8 +422,7 @@ class DecisionService:
 
         # Rule 3: claimed object not visible
         # Only flag WRONG_OBJECT when NEITHER the object NOR its claimed part
-        # is visible. A close-up of a car bumper IS a car image — the whole
-        # object doesn't need to be in frame if the claimed part IS visible.
+        # is visible. A close-up of a bumper IS a car image.
         if not vision.object_visible and not vision.object_part_visible:
             extra.append(RiskFlag.WRONG_OBJECT)
             return ClaimStatus.NOT_ENOUGH_INFORMATION, extra
@@ -413,7 +434,6 @@ class DecisionService:
 
         # Rule 5: part visible AND damage visible AND claim-consistent → SUPPORTED
         if vision.issue_visible and vision.supporting_image_ids:
-            # Check for mismatch between visible issue and claimed issue
             claimed = parsed_claim.claimed_issue
             visible = vision.issue_type
             if (
@@ -422,8 +442,6 @@ class DecisionService:
                 and claimed != visible
             ):
                 extra.append(RiskFlag.CLAIM_MISMATCH)
-                # Still SUPPORTED if evidence_standard_met and there's a
-                # supporting image — the damage is real, just a taxonomy diff
             return ClaimStatus.SUPPORTED, extra
 
         # Rule 5b: issue visible but wrong type, no supporting IDs → CONTRADICTED
@@ -441,11 +459,6 @@ class DecisionService:
             ):
                 extra.append(RiskFlag.CLAIM_MISMATCH)
                 return ClaimStatus.CONTRADICTED, extra
-
-        # Rule 6: part visible but damage absent / wrong
-        if vision.object_part_visible and not vision.issue_visible:
-            extra.append(RiskFlag.DAMAGE_NOT_VISIBLE)
-            return ClaimStatus.CONTRADICTED, extra
 
         # Rule 7: fallback
         return ClaimStatus.NOT_ENOUGH_INFORMATION, extra
