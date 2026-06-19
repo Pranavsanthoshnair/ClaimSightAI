@@ -1,0 +1,20 @@
+{
+  "v2": {
+    "prompt_version": "v2",
+    "n": 20,
+    "issue_type_accuracy": 0.15,
+    "object_part_accuracy": 0.05,
+    "claim_status_accuracy": 0.1,
+    "evidence_standard_met_accuracy": 0.1,
+    "mean_confidence": 0.0
+  },
+  "v3": {
+    "prompt_version": "v3",
+    "n": 20,
+    "issue_type_accuracy": 0.15,
+    "object_part_accuracy": 0.05,
+    "claim_status_accuracy": 0.1,
+    "evidence_standard_met_accuracy": 0.1,
+    "mean_confidence": 0.0
+  }
+}

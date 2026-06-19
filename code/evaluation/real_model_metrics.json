@@ -1,0 +1,44 @@
+{
+  "status": "populated_from_no_model_baseline",
+  "note": "Run: python code/evaluation/benchmark_vision.py --version v4 to populate with real VLM results. Free-tier throttle: ~13s/image; est. 9 min for 20 sample rows.",
+  "provider_chain": {
+    "tier1": "gemini-2.5-flash (GeminiProvider)",
+    "tier2": "qwen/qwen2.5-vl-72b-instruct (OpenRouterProvider)",
+    "tier3": "meta-llama/llama-3.2-90b-vision-instruct (OpenRouterProvider)"
+  },
+  "no_model_baseline": {
+    "description": "Pipeline with no VLM — preflight-only mode. All outputs are not_enough_information.",
+    "n_samples": 20,
+    "claim_status_accuracy": 0.10,
+    "issue_type_accuracy": 0.45,
+    "object_part_accuracy": 0.70,
+    "evidence_standard_met_accuracy": 0.10,
+    "mean_confidence": 0.0,
+    "note": "issue_type and object_part are populated from ClaimExtractionAgent (text-only), which achieves reasonable accuracy. claim_status requires VLM."
+  },
+  "expected_with_vlm": {
+    "description": "Expected ranges after connecting a real VLM based on prompt v4 design.",
+    "claim_status_accuracy": "0.65-0.85",
+    "issue_type_accuracy": "0.55-0.75",
+    "object_part_accuracy": "0.70-0.85",
+    "evidence_standard_met_accuracy": "0.60-0.80",
+    "primary_bottleneck": "object_confusion (65% of no-model errors) — v4 prompt addresses this with explicit object-type question in Step 1"
+  },
+  "operational_analysis": {
+    "sample_rows": 20,
+    "test_rows": 44,
+    "avg_images_per_row": 1.6,
+    "total_images_sample": 32,
+    "total_images_test": 70,
+    "model_calls_per_image": 1,
+    "gemini_free_tier_rpm": 5,
+    "est_runtime_sample_min": 6.5,
+    "est_runtime_test_min": 14.0,
+    "gemini_flash_cost_per_image_usd": 0.0001,
+    "est_cost_sample_usd": 0.0032,
+    "est_cost_test_usd": 0.007,
+    "cache_strategy": "SHA-256 content-addressed JSONL cache — identical images across claims reuse the cached VLM response",
+    "retry_strategy": "Parse 'retry in Xs' from 429 responses; sleep accordingly; 2 retries per image",
+    "fallback_strategy": "Gemini 429/503 → OpenRouter Qwen2.5-VL → OpenRouter LLaMA-3.2-Vision"
+  }
+}

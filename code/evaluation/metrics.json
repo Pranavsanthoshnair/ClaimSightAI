@@ -1,0 +1,290 @@
+{
+  "n_samples": 20,
+  "fields": {
+    "claim_status": {
+      "accuracy": 0.1,
+      "precision_macro": 0.0333,
+      "recall_macro": 0.3333,
+      "f1_macro": 0.0606,
+      "per_class": [
+        {
+          "class": "contradicted",
+          "support": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "not_enough_information",
+          "support": 2,
+          "precision": 0.1,
+          "recall": 1.0,
+          "f1": 0.1818
+        },
+        {
+          "class": "supported",
+          "support": 13,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ]
+    },
+    "issue_type": {
+      "accuracy": 0.45,
+      "precision_macro": 0.3472,
+      "recall_macro": 0.375,
+      "f1_macro": 0.3333,
+      "per_class": [
+        {
+          "class": "broken_part",
+          "support": 3,
+          "precision": 1.0,
+          "recall": 0.3333,
+          "f1": 0.5
+        },
+        {
+          "class": "crack",
+          "support": 3,
+          "precision": 0.6667,
+          "recall": 0.6667,
+          "f1": 0.6667
+        },
+        {
+          "class": "crushed_packaging",
+          "support": 1,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        {
+          "class": "dent",
+          "support": 3,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "glass_shatter",
+          "support": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "missing_part",
+          "support": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "none",
+          "support": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "scratch",
+          "support": 2,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        {
+          "class": "stain",
+          "support": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "torn_packaging",
+          "support": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "unknown",
+          "support": 3,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "water_damage",
+          "support": 1,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        }
+      ]
+    },
+    "object_part": {
+      "accuracy": 0.7,
+      "precision_macro": 0.6667,
+      "recall_macro": 0.6389,
+      "f1_macro": 0.6389,
+      "per_class": [
+        {
+          "class": "box",
+          "support": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "contents",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "corner",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "door",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "front_bumper",
+          "support": 2,
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6667
+        },
+        {
+          "class": "headlight",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "hinge",
+          "support": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "hood",
+          "support": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "keyboard",
+          "support": 1,
+          "precision": 0.5,
+          "recall": 1.0,
+          "f1": 0.6667
+        },
+        {
+          "class": "package_corner",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "package_side",
+          "support": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "rear_bumper",
+          "support": 2,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "screen",
+          "support": 2,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        {
+          "class": "seal",
+          "support": 2,
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6667
+        },
+        {
+          "class": "side_mirror",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "trackpad",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "class": "unknown",
+          "support": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "class": "windshield",
+          "support": 1,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      ]
+    },
+    "evidence_standard_met": {
+      "accuracy": 0.1,
+      "precision_macro": 0.05,
+      "recall_macro": 0.5,
+      "f1_macro": 0.0909,
+      "per_class": [
+        {
+          "class": "false",
+          "support": 2,
+          "precision": 0.1,
+          "recall": 1.0,
+          "f1": 0.1818
+        },
+        {
+          "class": "true",
+          "support": 18,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ]
+    }
+  },
+  "n_errors": 20,
+  "error_rate": 1.0,
+  "failure_categories": {
+    "evidence_insufficiency": 10,
+    "object_part_failure": 5,
+    "image_quality_failure": 3,
+    "other_mismatch": 2
+  }
+}
