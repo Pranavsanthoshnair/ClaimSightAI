@@ -923,9 +923,9 @@ with st.sidebar:
     # ── Debug mode toggle ──────────────────────────────────────────
     st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
     st.toggle(
-        "🔬 Debug Mode",
+        "⚙️ Developer Mode",
         key="debug_mode",
-        help="Show internal technical details: model names, requirement IDs, raw confidence scores, image IDs, and provider information.",
+        help="Show internal technical details: model names, requirement IDs, raw field values, confidence scores, image IDs, and provider information.",
     )
 
 
@@ -1205,7 +1205,7 @@ with tab_results:
 
         # ── Debug raw data expander ────────────────────────────────
         if _debug:
-            with st.expander("🔬 Raw Output Fields (debug)", expanded=False):
+            with st.expander("⚙️ Raw Output Fields (Developer Mode)", expanded=False):
                 st.code(f"""claim_status          = {out.claim_status!r}
 claim_status_justification = {str(out.claim_status_justification)[:300]!r}
 issue_type             = {out.issue_type!r}
@@ -1433,7 +1433,7 @@ with tab_trace:
                 if evidence.per_requirement:
                     for req in evidence.per_requirement:
                         icon = "✅" if req.satisfied else "❌"
-                        # Show REQ IDs only in debug mode
+                        # Show REQ IDs only in Developer Mode
                         if _dbg:
                             st.markdown(f"{icon} `{req.requirement_id}` — *{req.applies_to}*")
                         else:
