@@ -94,7 +94,7 @@ st.set_page_config(
     page_title="ClaimSight AI",
     page_icon="🔎",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── Global CSS ───────────────────────────────────────────────────────────────
@@ -654,12 +654,22 @@ def show_progress(placeholder, provider: str = ""):
 
 topbar()
 
+# ── Pre-init session state (must happen before sidebar renders) ──────────────
+if "debug_mode" not in st.session_state:
+    st.session_state["debug_mode"] = False
+if "_initialized" not in st.session_state:
+    st.session_state["_initialized"] = True
+    st.session_state["_focus_results"] = False
+    st.session_state["_focus_trace"] = False
+    st.session_state["_last_analysis_ts"] = 0
+    st.session_state["_claims_reviewed"] = 0
+
+
 # ── Graceful dependency failure gate ─────────────────────────────────────────
 if _DEPLOYMENT_ERROR:
     st.markdown(_DEPLOYMENT_ERROR, unsafe_allow_html=True)
     st.stop()
 
-# ── Model status panel — sidebar ─────────────────────────────────────────────
 _Cfg = None
 try:
     from config import Settings as _Cfg
@@ -764,6 +774,30 @@ with st.sidebar:
                       font-size: 0.62rem; color: #64748B; }
     </style>
     """, unsafe_allow_html=True)
+
+    # ── Developer Mode toggle — TOP of sidebar, always visible ─────────
+    _dev_mode_on = st.toggle(
+        "⚙️ Developer Mode",
+        key="debug_mode",
+        help="Show technical details: internal field names, raw values, model names, confidence scores, requirement IDs.",
+    )
+    if _dev_mode_on:
+        st.markdown(
+            '<div style="font-size:0.62rem;color:#6366F1;margin-bottom:0.25rem;padding:4px 8px;'
+            'background:rgba(99,102,241,0.08);border-radius:6px;border:1px solid rgba(99,102,241,0.2)">'
+            '⚙️ Developer details visible</div>',
+            unsafe_allow_html=True
+        )
+    st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
+
+    # Claims reviewed this session counter
+    _n_reviewed = st.session_state.get("_claims_reviewed", 0)
+    if _n_reviewed > 0:
+        st.markdown(
+            f'<div style="font-size:0.65rem;color:#475569;margin-bottom:0.5rem">'
+            f'📋 {_n_reviewed} claim{"s" if _n_reviewed > 1 else ""} reviewed this session</div>',
+            unsafe_allow_html=True
+        )
 
     st.markdown('<div class="ms-header">🤖 Model Availability</div>', unsafe_allow_html=True)
 
@@ -920,22 +954,11 @@ with st.sidebar:
         except Exception:
             pass
 
-    # ── Debug mode toggle ──────────────────────────────────────────
-    st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
-    st.toggle(
-        "⚙️ Developer Mode",
-        key="debug_mode",
-        help="Show internal technical details: model names, requirement IDs, raw field values, confidence scores, image IDs, and provider information.",
-    )
+    # ── Developer Mode toggle moved to TOP (see above) ──────────────
+    # Remove old toggle position — it's now at the top of the sidebar
 
-
-# ── Session state hardening ───────────────────────────────────────────────────
-if "_initialized" not in st.session_state:
-    st.session_state["_initialized"] = True
-    st.session_state["_focus_results"] = False
-    st.session_state["_focus_trace"] = False
-    st.session_state["_last_analysis_ts"] = 0
-    st.session_state.setdefault("debug_mode", False)
+# ── Session state hardening (remaining fields only) ─────────────────────────
+# Note: debug_mode and _initialized are pre-inited above the sidebar
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 import os as _os
@@ -1006,31 +1029,31 @@ with tab_review:
               <div class="pipe-connector"></div>
               <div class="pipe-icon done">1</div>
               <div class="pipe-body">
-                <div class="pipe-name">Claim Extraction</div>
-                <div class="pipe-detail">Parses conversation · extracts object, part, issue type</div>
+                <div class="pipe-name">Understanding the Claim</div>
+                <div class="pipe-detail">Reads the conversation and identifies the reported damage</div>
               </div>
             </div>
             <div class="pipe-step">
               <div class="pipe-connector"></div>
               <div class="pipe-icon done">2</div>
               <div class="pipe-body">
-                <div class="pipe-name">Vision Review</div>
-                <div class="pipe-detail">Multi-model VLM · per-image analysis</div>
+                <div class="pipe-name">Image Analysis</div>
+                <div class="pipe-detail">AI reviews every submitted photo for damage evidence</div>
               </div>
             </div>
             <div class="pipe-step">
               <div class="pipe-connector"></div>
               <div class="pipe-icon done">3</div>
               <div class="pipe-body">
-                <div class="pipe-name">Evidence Standards</div>
-                <div class="pipe-detail">Rule-based sufficiency engine · CSV-driven requirements</div>
+                <div class="pipe-name">Evidence Verification</div>
+                <div class="pipe-detail">Checks if the photos meet the required evidence standards</div>
               </div>
             </div>
             <div class="pipe-step">
               <div class="pipe-icon done">4</div>
               <div class="pipe-body">
-                <div class="pipe-name">Decision Engine</div>
-                <div class="pipe-detail">Deterministic rules · Supported / Contradicted / NEI</div>
+                <div class="pipe-name">Final Decision</div>
+                <div class="pipe-detail">Verified · Does Not Match · More Evidence Needed</div>
               </div>
             </div>
           </div>
@@ -1107,6 +1130,7 @@ with tab_review:
                     result = run_pipeline(uploaded_files or [], user_claim, claim_object)
                     st.session_state["result"] = result
                     st.session_state["_last_analysis_ts"] = time.time()
+                    st.session_state["_claims_reviewed"] = st.session_state.get("_claims_reviewed", 0) + 1
 
                     # Show inline success card
                     r = result
@@ -1188,18 +1212,21 @@ with tab_results:
         _debug = st.session_state.get("debug_mode", False)
         # Human-friendly sufficiency label
         _suf_label = _SUFFICIENCY_LABELS.get(str(evidence.sufficiency_level).lower(), str(evidence.sufficiency_level).replace("_"," ").title())
+
+        # ── KPI grid: normal users see 3 clean cards; devs see all ────────────
         kpis_html = '<div class="kpi-grid">'
-        kpis_html += kpi("Decision",        _VERDICT_LABELS.get(status, status.replace("_"," ").title()), status if _debug else "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
-        kpis_html += kpi("Damage Found",    str(out.issue_type).replace("_", " ").title(), str(out.issue_type) if _debug else "", "indigo")
-        kpis_html += kpi("Location",        str(out.object_part).replace("_", " ").title(), str(out.object_part) if _debug else "", "indigo")
-        kpis_html += kpi("Severity",        str(out.severity).title(),                 "", severity_color)
-        kpis_html += kpi("Evidence Status", _suf_label, str(evidence.sufficiency_level) if _debug else "", "green" if esm else "red")
-        lat_ms = r.get("latency_ms", 0)
-        kpis_html += kpi("Latency",         f"{lat_ms}ms" if lat_ms else "—",           "", "indigo")
+        # Always visible
+        kpis_html += kpi("Decision",     _VERDICT_LABELS.get(status, status.replace("_"," ").title()), "", "green" if status == "supported" else "red" if status == "contradicted" else "amber")
+        kpis_html += kpi("Damage Found", str(out.issue_type).replace("_", " ").title(), str(out.issue_type) if _debug else "", "indigo")
+        kpis_html += kpi("Location",     str(out.object_part).replace("_", " ").title(), str(out.object_part) if _debug else "", "indigo")
+        # Developer mode only
         if _debug:
-            kpis_html += kpi("Confidence",  conf_pct, provider, "indigo")
-            kpis_html += kpi("Risk Flags",  str(out.risk_flags), "", "amber")
-            kpis_html += kpi("Supporting IDs", str(out.supporting_image_ids)[:30], "", "slate")
+            kpis_html += kpi("Severity",       str(out.severity).title(), "", severity_color)
+            kpis_html += kpi("Evidence Status", _suf_label, str(evidence.sufficiency_level), "green" if esm else "red")
+            lat_ms = r.get("latency_ms", 0)
+            kpis_html += kpi("Latency",        f"{lat_ms}ms" if lat_ms else "—", "", "indigo")
+            kpis_html += kpi("Confidence",     conf_pct, provider, "indigo")
+            kpis_html += kpi("Risk Flags",     str(out.risk_flags), "", "amber")
         kpis_html += '</div>'
         st.markdown(kpis_html, unsafe_allow_html=True)
 
