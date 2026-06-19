@@ -18,6 +18,10 @@ code/.cache/
 code/logs/*.jsonl
 code/outputs/
 
+# Deployment startup log (appended every startup)
+logs/deployment.log
+logs/*.log
+
 # Test cache
 .pytest_cache/
 .coverage

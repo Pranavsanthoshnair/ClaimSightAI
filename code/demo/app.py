@@ -50,6 +50,32 @@ def _inject_secrets() -> None:
 
 _inject_secrets()
 
+# ── Startup diagnostics ──────────────────────────────────────────────────────
+_RUN_DIAGNOSTICS = True
+_DEPLOYMENT_ERROR: str | None = None
+try:
+    from utils.dependencies import (
+        check_dependencies,
+        format_dependency_error_html,
+        startup_diagnostics,
+        write_deployment_log,
+    )
+    _DIAG = startup_diagnostics(repo_root=_REPO_DIR, config_path=_CODE_DIR / "config.py")
+    # Update the diagnostics flag
+    _DEP_REPORT = check_dependencies()
+    if not _DEP_REPORT.all_required_met:
+        missing_all = _DEP_REPORT.missing_required + _DEP_REPORT.version_mismatches
+        if _DEP_REPORT.missing_required:
+            _DEPLOYMENT_ERROR = format_dependency_error_html(missing_all)
+        _RUN_DIAGNOSTICS = False
+    # Write deployment log (best-effort)
+    try:
+        write_deployment_log(_REPO_DIR / "logs", _DIAG)
+    except Exception:
+        pass
+except ImportError:
+    _RUN_DIAGNOSTICS = False
+
 import streamlit as st
 
 # ── Page config ─────────────────────────────────────────────────────────────
@@ -359,7 +385,6 @@ def _cached_claim_extraction(user_claim: str, claim_object: str) -> dict:
 
 def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
     from agents.vision_agent import VisionReviewAgent
-    from config import Settings
     from models.claim_extraction import ClaimExtractionInput
     from models.enums import ClaimObject, IssueType, ObjectPart
     from models.records import ClaimInput, ParsedClaim
@@ -368,7 +393,13 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
     from services.evidence_standards_engine import EvidenceStandardsEngine
     from services.model_service import ModelService
 
-    settings = Settings(repo_root=_REPO_DIR)
+    # Use cached settings if available, otherwise construct
+    _sess_settings = st.session_state.get("_settings")
+    if _sess_settings is not None:
+        settings = _sess_settings
+    else:
+        from config import Settings
+        settings = Settings(repo_root=_REPO_DIR)
 
     # Save uploaded images
     tmp_paths, img_names = [], []
@@ -488,19 +519,44 @@ def show_progress(placeholder):
 
 topbar()
 
+# ── Graceful dependency failure gate ─────────────────────────────────────────
+if _DEPLOYMENT_ERROR:
+    st.markdown(_DEPLOYMENT_ERROR, unsafe_allow_html=True)
+    st.stop()
+
 # ── Model status indicator (sidebar-free, top-right) ─────────────────────────
-from config import Settings as _Cfg
-_s = _Cfg(repo_root=_REPO_DIR)
-if _s.has_vision_model:
-    st.markdown(
-        f'<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-        f'<span class="chip chip-green">● {_s.model_provider.upper()} CONNECTED</span></div>',
-        unsafe_allow_html=True,
-    )
+_Cfg = None
+try:
+    from config import Settings as _Cfg
+except Exception:
+    _Cfg = None
+
+if _Cfg is not None:
+    try:
+        _s = _Cfg(repo_root=_REPO_DIR)
+        if _s.has_vision_model:
+            st.markdown(
+                f'<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
+                f'<span class="chip chip-green">● {_s.model_provider.upper()} CONNECTED</span></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
+                '<span class="chip chip-amber">● PREFLIGHT MODE</span></div>',
+                unsafe_allow_html=True,
+            )
+        st.session_state["_settings"] = _s
+    except Exception:
+        st.markdown(
+            '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
+            '<span class="chip chip-amber">● CONFIG ERROR</span></div>',
+            unsafe_allow_html=True,
+        )
 else:
     st.markdown(
         '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-        '<span class="chip chip-amber">● PREFLIGHT MODE</span></div>',
+        '<span class="chip chip-red">● CONFIG LOAD FAILED</span></div>',
         unsafe_allow_html=True,
     )
 
