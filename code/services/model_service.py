@@ -36,21 +36,22 @@ logger = logging.getLogger(__name__)
 # Max dimension to resize images to before sending (cost + latency control)
 _MAX_DIM = 1536
 
-# Error substrings that trigger fallback
-_FALLBACK_TRIGGERS = ("429", "503", "timeout", "timed out", "exhausted", "quota")
-
 
 def _resize_image(image_bytes: bytes, max_dim: int = _MAX_DIM) -> bytes:
     """Resize image to max_dim on the longest side. Returns original on failure."""
     try:
         from PIL import Image  # type: ignore[import]
+        try:
+            _LANCZOS = Image.Resampling.LANCZOS
+        except AttributeError:
+            _LANCZOS = Image.LANCZOS  # type: ignore[attr-defined]
         img = Image.open(io.BytesIO(image_bytes))
         w, h = img.size
         if max(w, h) <= max_dim:
             return image_bytes
         scale = max_dim / max(w, h)
         new_size = (int(w * scale), int(h * scale))
-        img = img.resize(new_size, Image.LANCZOS)
+        img = img.resize(new_size, _LANCZOS)
         buf = io.BytesIO()
         fmt = img.format or "JPEG"
         img.save(buf, format=fmt)
@@ -71,14 +72,6 @@ def _guess_mime(image_bytes: bytes) -> str:
     if image_bytes[:4] == b"RIFF":
         return "image/webp"
     return "image/jpeg"  # safe fallback
-
-
-def _should_fallback(exc: Exception) -> bool:
-    """Return True if this exception type warrants trying the fallback provider."""
-    if isinstance(exc, (ConnectionError, TimeoutError)):
-        return True
-    exc_str = str(exc).lower()
-    return any(trigger in exc_str for trigger in _FALLBACK_TRIGGERS)
 
 
 class ModelService:

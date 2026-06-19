@@ -264,7 +264,7 @@ class TestModelServiceProviderInit:
 
     def test_no_api_keys_preflight_mode(self):
         """No API keys → has_vision_model is False."""
-        settings = Settings(model_provider="none")
+        settings = Settings(model_provider="none", gemini_api_key="", openrouter_api_key="")
         assert settings.has_vision_model is False
 
     def test_gemini_api_key_enables_vision(self):
@@ -279,7 +279,7 @@ class TestModelServiceProviderInit:
 
     def test_model_service_init_no_keys(self):
         """ModelService init with no keys → inspect_image raises NotImplementedError."""
-        settings = Settings(model_provider="none")
+        settings = Settings(model_provider="none", gemini_api_key="", openrouter_api_key="")
         svc = ModelService(settings=settings)
         with pytest.raises(NotImplementedError, match="No VLM configured"):
             svc.inspect_image("sys", "prompt", b"\x00" * 100)

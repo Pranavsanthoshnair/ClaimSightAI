@@ -27,13 +27,17 @@ def _resize_image(image_bytes: bytes, max_dim: int = _MAX_DIM) -> bytes:
     """Resize image so the longest side ≤ max_dim. Returns original on failure."""
     try:
         from PIL import Image  # type: ignore[import]
+        try:
+            _LANCZOS = Image.Resampling.LANCZOS
+        except AttributeError:
+            _LANCZOS = Image.LANCZOS  # type: ignore[attr-defined]
         img = Image.open(io.BytesIO(image_bytes))
         w, h = img.size
         if max(w, h) <= max_dim:
             return image_bytes
         scale = max_dim / max(w, h)
         new_size = (int(w * scale), int(h * scale))
-        img = img.resize(new_size, Image.LANCZOS)
+        img = img.resize(new_size, _LANCZOS)
         buf = io.BytesIO()
         fmt = img.format or "JPEG"
         img.save(buf, format=fmt)
