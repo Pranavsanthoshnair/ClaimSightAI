@@ -94,7 +94,7 @@ st.set_page_config(
     page_title="ClaimSight AI",
     page_icon="🔎",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ── Global CSS ───────────────────────────────────────────────────────────────
@@ -118,35 +118,41 @@ html, body, [data-testid="stAppViewContainer"] {
 #MainMenu, footer { visibility: hidden; }
 header { visibility: hidden; }
 
-/* Sidebar expand/collapse arrow — always visible and styled */
+/* ── Sidebar collapse/expand arrow — ALWAYS visible ──────────────── */
 [data-testid="collapsedControl"] {
   visibility: visible !important;
+  opacity: 1 !important;
   display: flex !important;
-  align-items: center;
-  justify-content: center;
+  align-items: center !important;
+  justify-content: center !important;
   position: fixed !important;
-  top: 50% !important;
+  top: 50vh !important;
   left: 0 !important;
   transform: translateY(-50%) !important;
-  width: 24px !important;
-  height: 56px !important;
-  background: #1F2937 !important;
-  border: 1px solid #374151 !important;
-  border-left: none !important;
+  z-index: 99999 !important;
+  width: 22px !important;
+  height: 52px !important;
+  min-width: 22px !important;
+  background: linear-gradient(180deg, #4F46E5, #6366F1) !important;
+  border: none !important;
   border-radius: 0 10px 10px 0 !important;
   cursor: pointer !important;
-  z-index: 9999 !important;
-  transition: background 0.2s, width 0.2s !important;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.4) !important;
+  box-shadow: 2px 0 12px rgba(99,102,241,0.5) !important;
+  transition: width 0.2s ease, box-shadow 0.2s ease !important;
 }
 [data-testid="collapsedControl"]:hover {
-  background: #374151 !important;
-  width: 30px !important;
+  width: 28px !important;
+  box-shadow: 2px 0 18px rgba(99,102,241,0.8) !important;
 }
 [data-testid="collapsedControl"] svg {
+  fill: #fff !important;
+  color: #fff !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+/* Also style the in-sidebar collapse button */
+[data-testid="stSidebarCollapseButton"] button {
   color: #6366F1 !important;
-  width: 16px !important;
-  height: 16px !important;
 }
 .block-container { padding: 1.5rem 2rem 4rem; max-width: 1280px; margin: 0 auto; }
 
