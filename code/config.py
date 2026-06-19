@@ -55,21 +55,47 @@ class Settings(BaseModel):
     schema_version: str = "v1"
 
     # ── OpenRouter (primary vision stack) ────────────────────────────────────
+    # Key pool — up to 5 keys rotated instantly on 402/429, no sleep needed.
     openrouter_api_key: str = Field(
         default_factory=lambda: _env("OPENROUTER_API_KEY", "")
     )
+    openrouter_api_key_2: str = Field(
+        default_factory=lambda: _env("OPENROUTER_API_KEY_2", "")
+    )
+    openrouter_api_key_3: str = Field(
+        default_factory=lambda: _env("OPENROUTER_API_KEY_3", "")
+    )
+    openrouter_api_key_4: str = Field(
+        default_factory=lambda: _env("OPENROUTER_API_KEY_4", "")
+    )
+    openrouter_api_key_5: str = Field(
+        default_factory=lambda: _env("OPENROUTER_API_KEY_5", "")
+    )
     openrouter_model_primary: str = Field(
         default_factory=lambda: _env("OPENROUTER_MODEL_PRIMARY",
-                                     "qwen/qwen2.5-vl-72b-instruct")
+                                     "meta-llama/llama-3.2-11b-vision-instruct")
     )
     openrouter_model_secondary: str = Field(
         default_factory=lambda: _env("OPENROUTER_MODEL_SECONDARY",
-                                     "meta-llama/llama-3.2-11b-vision-instruct")
+                                     "anthropic/claude-3-haiku")
     )
     openrouter_model_tertiary: str = Field(
         default_factory=lambda: _env("OPENROUTER_MODEL_TERTIARY",
-                                     "anthropic/claude-3-haiku")
+                                     "qwen/qwen2.5-vl-72b-instruct")
     )
+
+    @property
+    def openrouter_key_pool(self) -> list[str]:
+        """All non-empty OpenRouter keys in priority order."""
+        return [
+            k for k in [
+                self.openrouter_api_key,
+                self.openrouter_api_key_2,
+                self.openrouter_api_key_3,
+                self.openrouter_api_key_4,
+                self.openrouter_api_key_5,
+            ] if k
+        ]
 
     # ── Groq (text-only reasoning fallback) ──────────────────────────────────
     groq_api_key: str = Field(

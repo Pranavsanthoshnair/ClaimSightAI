@@ -141,10 +141,11 @@ class OpenRouterProvider(BaseVisionProvider):
 
     Parameters
     ----------
-    api_key : str
-        OpenRouter API key (Bearer token).
+    key_pool : list[str]
+        Up to 5 OpenRouter API keys tried in order on any 402/429.
+        No sleep between attempts — instant rotation to the next key.
     model : str
-        Model slug, e.g. ``"qwen/qwen2.5-vl-72b-instruct"``.
+        Model slug, e.g. ``"meta-llama/llama-3.2-11b-vision-instruct"``.
     temperature : float
         Sampling temperature; 0 for deterministic output.
     timeout : int
@@ -153,84 +154,119 @@ class OpenRouterProvider(BaseVisionProvider):
         Longest side in pixels before resizing.
     max_tokens : int
         Output token cap — keeps cost low on large models (default 1024).
-    rate_limit_sleep : float
-        Seconds to wait on a 429 before one retry attempt (default 3).
     """
 
     def __init__(
         self,
-        api_key: str,
+        key_pool: list[str],
         model: str = _DEFAULT_MODEL,
         temperature: float = 0.0,
         timeout: int = 120,
         max_image_dimension: int = _MAX_DIM,
         max_tokens: int = 1024,
-        rate_limit_sleep: float = 3.0,
+        # legacy compat — ignored, kept so old call sites don't crash
+        api_key: str = "",
+        backup_api_key: str = "",
+        rate_limit_sleep: float = 0.0,
     ) -> None:
-        self._api_key = api_key
+        # Accept both new key_pool and old api_key + backup_api_key call sites
+        if key_pool:
+            self._key_pool: list[str] = [k for k in key_pool if k]
+        else:
+            self._key_pool = [k for k in [api_key, backup_api_key] if k]
+        if not self._key_pool:
+            raise ValueError("OpenRouterProvider requires at least one API key")
         self._model = model
         self._temperature = temperature
         self._timeout = timeout
         self._max_image_dimension = max_image_dimension
         self._max_tokens = max_tokens
-        self._rate_limit_sleep = rate_limit_sleep
 
     @property
     def provider_name(self) -> str:
         return "openrouter"
 
-    def _call(self, payload: dict, headers: dict) -> str:
-        """Make one HTTP call; handle 429 with a single sleep+retry."""
-        resp = requests.post(
-            _OPENROUTER_BASE_URL,
-            json=payload,
-            headers=headers,
-            timeout=self._timeout,
+    def _call(self, payload: dict, base_headers: dict) -> str:
+        """Try each key in the pool in order.
+
+        On 402 (credit exhausted) or 429 (rate limited): move to the next key
+        immediately — zero sleep. First key that returns HTTP 200 wins.
+        If all keys fail, raises RuntimeError with the last error seen.
+        """
+        last_error = "no keys in pool"
+        tried = 0
+
+        for key in self._key_pool:
+            tried += 1
+            headers = {**base_headers, "Authorization": f"Bearer {key}"}
+            try:
+                resp = requests.post(
+                    _OPENROUTER_BASE_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=self._timeout,
+                )
+            except requests.RequestException as exc:
+                last_error = str(exc)
+                logger.warning("OpenRouter network error on key #%d: %s", tried, exc)
+                continue
+
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    last_error = f"no choices in response: {data}"
+                    logger.warning("OpenRouter key #%d returned no choices", tried)
+                    continue
+                content = choices[0].get("message", {}).get("content", "")
+                if not content:
+                    last_error = f"empty content in response: {data}"
+                    logger.warning("OpenRouter key #%d returned empty content", tried)
+                    continue
+                if tried > 1:
+                    logger.info(
+                        "OpenRouter key #%d succeeded for %s after %d failures",
+                        tried, self._model, tried - 1,
+                    )
+                return content
+
+            elif resp.status_code in (402, 429):
+                reason = "credits exhausted" if resp.status_code == 402 else "rate limited"
+                last_error = f"HTTP {resp.status_code} ({reason}): {resp.text[:120]}"
+                logger.warning(
+                    "OpenRouter key #%d %s on %s — trying next key instantly",
+                    tried, reason, self._model,
+                )
+                continue  # no sleep — next key immediately
+
+            else:
+                last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                logger.warning(
+                    "OpenRouter key #%d returned %d on %s: %s",
+                    tried, resp.status_code, self._model, resp.text[:100],
+                )
+                # Non-transient error (400, 404, 500 etc.) — skip remaining keys
+                break
+
+        raise RuntimeError(
+            f"OpenRouter [{self._model}] — all {tried} key(s) failed. "
+            f"Last error: {last_error}"
         )
-
-        # 429: sleep once and retry before giving up
-        if resp.status_code == 429:
-            logger.warning(
-                "OpenRouter 429 on %s — sleeping %.1fs then retrying once",
-                self._model, self._rate_limit_sleep,
-            )
-            time.sleep(self._rate_limit_sleep)
-            resp = requests.post(
-                _OPENROUTER_BASE_URL,
-                json=payload,
-                headers=headers,
-                timeout=self._timeout,
-            )
-
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"OpenRouter returned HTTP {resp.status_code}: {resp.text[:200]}"
-            )
-
-        data = resp.json()
-        choices = data.get("choices", [])
-        if not choices:
-            raise RuntimeError(f"OpenRouter returned no choices: {data}")
-
-        content = choices[0].get("message", {}).get("content", "")
-        if not content:
-            raise RuntimeError(f"OpenRouter returned empty content: {data}")
-
-        return content
 
     def analyze_image(self, system: str, prompt: str, image_bytes: bytes) -> str:
         """Send one image to OpenRouter and return a JSON string.
 
+        Authorization is injected per-key inside _call().
         response_format is only added for models that support json_object mode.
         For all others, JSON extraction is performed on the raw text response.
         """
-        resized = _resize_image(image_bytes, self._max_image_dimension)
-        mime = _guess_mime(resized)
-        b64 = _to_base64(resized)
+        resized  = _resize_image(image_bytes, self._max_image_dimension)
+        mime     = _guess_mime(resized)
+        b64      = _to_base64(resized)
         data_url = f"data:{mime};base64,{b64}"
 
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
+        # Base headers — Authorization is set per-key inside _call()
+        base_headers = {
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/multi-modal-evidence-review",
             "X-Title": "ClaimSight AI - Multi-Modal Evidence Review",
@@ -246,10 +282,7 @@ class OpenRouterProvider(BaseVisionProvider):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": data_url},
-                        },
+                        {"type": "image_url", "image_url": {"url": data_url}},
                     ],
                 },
             ],
@@ -259,8 +292,8 @@ class OpenRouterProvider(BaseVisionProvider):
         if self._model in _JSON_MODE_MODELS:
             payload["response_format"] = {"type": "json_object"}
 
-        logger.debug("OpenRouter: calling model=%s", self._model)
-        raw_content = self._call(payload, headers)
+        logger.debug("OpenRouter: calling model=%s (pool size=%d)", self._model, len(self._key_pool))
+        raw_content = self._call(payload, base_headers)
 
         # Extract JSON from the response (handles markdown fences, prose wrapping)
         try:

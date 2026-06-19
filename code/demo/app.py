@@ -33,6 +33,10 @@ def _inject_secrets() -> None:
         import streamlit as _st
         for key in (
             "OPENROUTER_API_KEY",
+            "OPENROUTER_API_KEY_2",
+            "OPENROUTER_API_KEY_3",
+            "OPENROUTER_API_KEY_4",
+            "OPENROUTER_API_KEY_5",
             "OPENROUTER_MODEL_PRIMARY",
             "OPENROUTER_MODEL_SECONDARY",
             "OPENROUTER_MODEL_TERTIARY",
@@ -615,51 +619,270 @@ if _DEPLOYMENT_ERROR:
     st.markdown(_DEPLOYMENT_ERROR, unsafe_allow_html=True)
     st.stop()
 
-# ── Model status indicator (sidebar-free, top-right) ─────────────────────────
+# ── Model status panel — sidebar ─────────────────────────────────────────────
 _Cfg = None
 try:
     from config import Settings as _Cfg
 except Exception:
     _Cfg = None
 
-if _Cfg is not None:
-    try:
-        _s = _Cfg(repo_root=_REPO_DIR)
-        if _s.has_vision_model:
-            # Show provider chain summary (Tier 1 model name)
-            _t1_name = _s.openrouter_model_primary.split("/")[-1]
-            st.markdown(
-                f'<div style="text-align:right;margin-top:-3rem;margin-bottom:0.5rem">'
-                f'<span class="chip chip-green">● VISION PROVIDERS READY</span></div>'
-                f'<div style="text-align:right;margin-bottom:1rem;font-size:0.68rem;color:#475569">'
-                f'T1:{_s.openrouter_model_primary.split("/")[-1]} '
-                f'· T2:{_s.openrouter_model_secondary.split("/")[-1]} '
-                f'· T3:{_s.openrouter_model_tertiary.split("/")[-1]} '
-                f'· Groq:{_s.groq_model if _s.groq_api_key else "not configured"}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-                '<span class="chip chip-amber">● PREFLIGHT MODE</span>'
-                '<span style="font-size:0.65rem;color:#64748B;margin-left:8px">Set OPENROUTER_API_KEY to enable vision</span>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-        st.session_state["_settings"] = _s
-    except Exception:
+# All known OpenRouter vision models the system can use
+_ALL_MODELS = [
+    ("qwen/qwen2.5-vl-72b-instruct",            "Qwen 2.5 VL 72B",    "T1 (primary)"),
+    ("meta-llama/llama-3.2-11b-vision-instruct", "Llama 3.2 11B Vision","T2"),
+    ("anthropic/claude-3-haiku",                 "Claude 3 Haiku",      "T3"),
+    ("openai/gpt-4o-mini",                       "GPT-4o Mini",         "optional"),
+    ("openai/gpt-4o",                            "GPT-4o",              "optional"),
+]
+
+@st.cache_data(show_spinner=False, ttl=300)   # cache 5 min
+def _probe_models(api_key: str, backup_key: str) -> dict:
+    """Live-probe each model with a tiny image. Returns {slug: 'ok'|'error:...'|'no_key'}."""
+    import base64, io, requests as _req
+    from PIL import Image as _Img
+
+    if not api_key:
+        return {m[0]: "no_key" for m in _ALL_MODELS}
+
+    buf = io.BytesIO()
+    _Img.new("RGB", (8, 8), (120, 80, 40)).save(buf, format="JPEG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    data_url = f"data:image/jpeg;base64,{b64}"
+
+    URL = "https://openrouter.ai/api/v1/chat/completions"
+    results = {}
+    for slug, _label, _tier in _ALL_MODELS:
+        ok = False
+        for key in ([api_key] + ([backup_key] if backup_key else [])):
+            if ok:
+                break
+            hdrs = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "X-Title": "ClaimSight AI - Status Check",
+            }
+            payload = {
+                "model": slug,
+                "max_tokens": 16,
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": "Reply with the word ok only."},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ]}],
+            }
+            try:
+                r = _req.post(URL, json=payload, headers=hdrs, timeout=12)
+                if r.status_code == 200:
+                    ok = True
+                    results[slug] = "ok"
+                elif r.status_code == 404:
+                    results[slug] = "error:not_found"
+                    break   # 404 = model doesn't exist, no point trying backup
+                else:
+                    err = r.json().get("error", {}).get("message", str(r.status_code))[:60]
+                    results[slug] = f"error:{err}"
+            except Exception as exc:
+                results[slug] = f"error:{str(exc)[:50]}"
+        if slug not in results:
+            results[slug] = "error:unknown"
+    return results
+
+# ── Build sidebar ─────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] { background: #0D1117 !important; border-right: 1px solid #1F2937; }
+    .ms-header { font-size: 0.65rem; font-weight: 700; color: #6366F1;
+                 text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 0.75rem; }
+    .ms-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.55rem 0.75rem; border-radius: 10px; margin-bottom: 6px;
+      background: #111827; border: 1px solid #1F2937;
+      transition: border-color 0.2s;
+    }
+    .ms-row:hover { border-color: #374151; }
+    .ms-row.active { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); }
+    .ms-left { display: flex; flex-direction: column; gap: 1px; }
+    .ms-name { font-size: 0.78rem; font-weight: 600; color: #E2E8F0; }
+    .ms-tier { font-size: 0.62rem; color: #475569; }
+    .ms-dot-ok  { width: 10px; height: 10px; border-radius: 50%;
+                  background: #10B981; box-shadow: 0 0 6px rgba(16,185,129,0.6);
+                  flex-shrink: 0; }
+    .ms-dot-err { width: 10px; height: 10px; border-radius: 50%;
+                  background: #EF4444; box-shadow: 0 0 6px rgba(239,68,68,0.5);
+                  flex-shrink: 0; }
+    .ms-dot-pending { width: 10px; height: 10px; border-radius: 50%;
+                      background: #F59E0B; flex-shrink: 0; }
+    .ms-dot-nokey { width: 10px; height: 10px; border-radius: 50%;
+                    background: #374151; flex-shrink: 0; }
+    .ms-err-text { font-size: 0.6rem; color: #6B7280; margin-top: 2px;
+                   max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-divider { height: 1px; background: #1F2937; margin: 0.75rem 0; }
+    .ms-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 0.5rem; }
+    .ms-legend-item { display: flex; align-items: center; gap: 5px;
+                      font-size: 0.62rem; color: #64748B; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="ms-header">🤖 Model Availability</div>', unsafe_allow_html=True)
+
+    _s_side = None
+    _key_pool_side: list[str] = []
+    if _Cfg is not None:
+        try:
+            _s_side = _Cfg(repo_root=_REPO_DIR)
+            _key_pool_side = _s_side.openrouter_key_pool
+            st.session_state["_settings"] = _s_side
+        except Exception:
+            pass
+
+    # Configured tiers from settings
+    _configured_primary   = (_s_side.openrouter_model_primary   if _s_side else "")
+    _configured_secondary = (_s_side.openrouter_model_secondary if _s_side else "")
+    _configured_tertiary  = (_s_side.openrouter_model_tertiary  if _s_side else "")
+
+    # Show pool size
+    _pool_count = len(_key_pool_side)
+    if _pool_count > 0:
         st.markdown(
-            '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-            '<span class="chip chip-amber">● CONFIG ERROR</span></div>',
+            f'<div style="font-size:0.65rem;color:#475569;margin-bottom:0.5rem">'
+            f'🔑 {_pool_count} key{"s" if _pool_count>1 else ""} in pool · instant rotation on 402/429'
+            f'</div>',
             unsafe_allow_html=True,
         )
-else:
-    st.markdown(
-        '<div style="text-align:right;margin-top:-3rem;margin-bottom:1.5rem">'
-        '<span class="chip chip-red">● CONFIG LOAD FAILED</span></div>',
-        unsafe_allow_html=True,
+
+    # Probe button + cached results
+    do_probe = st.button("⟳  Check Status", use_container_width=True)
+    if do_probe:
+        _probe_models.clear()   # bust cache on manual refresh
+
+    probe_results: dict = {}
+    _primary_key = _key_pool_side[0] if _key_pool_side else ""
+    _backup_keys = ",".join(_key_pool_side[1:]) if len(_key_pool_side) > 1 else ""
+    if _primary_key:
+        with st.spinner(f"Probing models across {_pool_count} key(s)…"):
+            probe_results = _probe_models(_primary_key, _backup_keys)
+    else:
+        probe_results = {m[0]: "no_key" for m in _ALL_MODELS}
+
+    # Render rows
+    any_ok = False
+    rows_html = ""
+    for slug, label, tier in _ALL_MODELS:
+        status = probe_results.get(slug, "pending")
+
+        # Determine which tier this is currently configured as
+        if slug == _configured_primary:
+            tier_label = "Active · T1"
+            active_cls = " active"
+        elif slug == _configured_secondary:
+            tier_label = "Active · T2"
+            active_cls = " active"
+        elif slug == _configured_tertiary:
+            tier_label = "Active · T3"
+            active_cls = " active"
+        else:
+            tier_label = tier
+            active_cls = ""
+
+        if status == "ok":
+            dot_cls = "ms-dot-ok"
+            status_txt = ""
+            any_ok = True
+        elif status == "no_key":
+            dot_cls = "ms-dot-nokey"
+            status_txt = '<div class="ms-err-text">no API key</div>'
+        elif status.startswith("error:"):
+            dot_cls = "ms-dot-err"
+            err_msg = status[6:][:38]
+            status_txt = f'<div class="ms-err-text">{err_msg}</div>'
+        else:
+            dot_cls = "ms-dot-pending"
+            status_txt = ""
+
+        rows_html += f"""
+        <div class="ms-row{active_cls}">
+          <div class="ms-left">
+            <div class="ms-name">{label}</div>
+            <div class="ms-tier">{tier_label}</div>
+            {status_txt}
+          </div>
+          <div class="{dot_cls}"></div>
+        </div>"""
+
+    st.markdown(rows_html, unsafe_allow_html=True)
+
+    # Legend
+    st.markdown("""
+    <div class="ms-divider"></div>
+    <div class="ms-legend">
+      <div class="ms-legend-item"><div class="ms-dot-ok"></div> Available</div>
+      <div class="ms-legend-item"><div class="ms-dot-err"></div> Error / credits</div>
+      <div class="ms-legend-item"><div class="ms-dot-nokey"></div> No key set</div>
+    </div>
+    <div style="font-size:0.6rem;color:#374151;margin-top:0.5rem">
+      Highlighted rows = currently active tiers<br>
+      Probed live · cached 5 min
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
+
+    # Overall system status pill
+    if not _api_key_side:
+        st.markdown(
+            '<span class="chip chip-amber" style="width:100%;justify-content:center">● PREFLIGHT MODE</span>',
+            unsafe_allow_html=True,
+        )
+        st.caption("Set OPENROUTER_API_KEY to enable vision")
+    elif any_ok:
+        st.markdown(
+            '<span class="chip chip-green" style="width:100%;justify-content:center">● VISION READY</span>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<span class="chip chip-red" style="width:100%;justify-content:center">● ALL MODELS DOWN</span>',
+            unsafe_allow_html=True,
+        )
+
+    # Model selector dropdown — lets user pick which model to use for this session
+    st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ms-header">Select Active Model</div>', unsafe_allow_html=True)
+    available_models = [s for s, *_ in _ALL_MODELS if probe_results.get(s) == "ok"]
+    all_model_labels = [
+        f"{'✅' if probe_results.get(s)=='ok' else '🔴'} {lbl} ({tier})"
+        for s, lbl, tier in _ALL_MODELS
+    ]
+    all_model_slugs = [s for s, *_ in _ALL_MODELS]
+
+    # Default to the currently configured primary
+    try:
+        _default_idx = all_model_slugs.index(_configured_primary)
+    except ValueError:
+        _default_idx = 0
+
+    _selected_label = st.selectbox(
+        "Vision model",
+        options=all_model_labels,
+        index=_default_idx,
+        label_visibility="collapsed",
+        key="model_selector",
     )
+    _selected_slug = all_model_slugs[all_model_labels.index(_selected_label)]
+
+    # Apply selection to session settings
+    if _s_side is not None and _selected_slug != _configured_primary:
+        try:
+            import os as _os2
+            _os2.environ["OPENROUTER_MODEL_PRIMARY"] = _selected_slug
+            from config import Settings as _CfgNew
+            st.session_state["_settings"] = _CfgNew(repo_root=_REPO_DIR)
+            st.caption(f"Active: {_selected_slug.split('/')[-1]}")
+        except Exception:
+            pass
+    elif _s_side is not None:
+        st.caption(f"Active: {_selected_slug.split('/')[-1]}")
+
 
 # ── Session state hardening ───────────────────────────────────────────────────
 if "_initialized" not in st.session_state:

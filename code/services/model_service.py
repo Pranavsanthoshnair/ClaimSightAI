@@ -70,33 +70,39 @@ class ModelService:
         s = self.settings
 
         if s.openrouter_api_key:
-            # Tier 1 — Qwen2.5-VL
+            _pool = s.openrouter_key_pool   # list of up to 5 non-empty keys
+            logger.info(
+                "OpenRouter key pool: %d key(s) available — instant rotation on 402/429",
+                len(_pool),
+            )
+            # Tier 1 — Primary model
             self._providers.append(OpenRouterProvider(
-                api_key=s.openrouter_api_key,
+                key_pool=_pool,
                 model=s.openrouter_model_primary,
                 temperature=s.temperature,
                 timeout=s.request_timeout_seconds,
                 max_image_dimension=s.max_image_dimension,
             ))
-            # Tier 2 — Llama Vision
+            # Tier 2 — Secondary model
             self._providers.append(OpenRouterProvider(
-                api_key=s.openrouter_api_key,
+                key_pool=_pool,
                 model=s.openrouter_model_secondary,
                 temperature=s.temperature,
                 timeout=s.request_timeout_seconds,
                 max_image_dimension=s.max_image_dimension,
             ))
-            # Tier 3 — Pixtral
+            # Tier 3 — Tertiary model
             self._providers.append(OpenRouterProvider(
-                api_key=s.openrouter_api_key,
+                key_pool=_pool,
                 model=s.openrouter_model_tertiary,
                 temperature=s.temperature,
                 timeout=s.request_timeout_seconds,
                 max_image_dimension=s.max_image_dimension,
             ))
             logger.info(
-                "Vision provider chain: %s",
-                " → ".join(p._model for p in self._providers),
+                "Vision chain: %s  |  keys/tier: %d",
+                " -> ".join(p._model for p in self._providers),
+                len(_pool),
             )
 
         if s.groq_api_key:
