@@ -8,17 +8,20 @@ Decision rules (in priority order)
 ------------------------------------
 1. If no valid image exists → NOT_ENOUGH_INFORMATION, valid_image=False,
    MANUAL_REVIEW_REQUIRED risk flag.
-2. If evidence standard is not met → NOT_ENOUGH_INFORMATION with the
-   evidence reason surfaced in the justification.
+2a. If claimed part IS visible AND claimed damage NOT visible → CONTRADICTED
+    (disproves the claim before even checking evidence sufficiency).
+2c. If a DIFFERENT damage type is visible AND both types are known → CONTRADICTED
+    (e.g. claim=glass_broken, image shows dent → CLAIM_MISMATCH + CONTRADICTED).
+2b. If evidence standard is not met → NOT_ENOUGH_INFORMATION with the
+    evidence reason surfaced in the justification.
 3. If the claimed object is not visible in any image → NOT_ENOUGH_INFORMATION,
    WRONG_OBJECT risk flag.
 4. If the claimed object part is not visible → NOT_ENOUGH_INFORMATION,
    WRONG_OBJECT_PART risk flag.
-5. If the claimed part IS visible AND damage consistent with the claim IS
-   visible → SUPPORTED.
-6. If the claimed part IS visible AND damage is NOT visible (or a different
-   object/part is shown) → CONTRADICTED.
-7. Fallback → NOT_ENOUGH_INFORMATION.
+5. If the claimed part IS visible AND the claimed damage type IS confirmed
+   visible → SUPPORTED. If supporting images exist but damage type differs
+   from claimed → CONTRADICTED + CLAIM_MISMATCH.
+6. Fallback → NOT_ENOUGH_INFORMATION.
 
 Risk flags
 ----------
@@ -414,6 +417,30 @@ class DecisionService:
             extra.append(RiskFlag.DAMAGE_NOT_VISIBLE)
             return ClaimStatus.CONTRADICTED, extra
 
+        # Rule 2c: WRONG DAMAGE TYPE — a different damage type is visible.
+        # Example: claim says glass_broken, image shows a dent on the bumper.
+        # Fires when: part OR object is visible AND some damage is visible AND
+        # the visible damage type is definitively different from the claimed type.
+        # Belt-and-suspenders check that works even when issue_visible=False.
+        _claimed  = parsed_claim.claimed_issue
+        _visible  = vision.issue_type  # best-match from VLM (could be wrong type)
+        _any_damage = any(
+            a.visible_issues for a in vision.per_image if a.readable
+        )
+        _type_mismatch = (
+            _claimed != IssueType.UNKNOWN
+            and _visible != IssueType.UNKNOWN
+            and _claimed != _visible
+        )
+        if (
+            _any_damage
+            and _type_mismatch
+            and (vision.object_visible or vision.object_part_visible)
+            and not vision.issue_visible  # claimed type NOT confirmed by VLM
+        ):
+            extra.append(RiskFlag.CLAIM_MISMATCH)
+            return ClaimStatus.CONTRADICTED, extra
+
         # Rule 2b: evidence standard not met (and not already contradicted)
         if not evidence.evidence_standard_met:
             if evidence.sufficiency_level == SufficiencyLevel.UNVERIFIABLE:
@@ -432,7 +459,9 @@ class DecisionService:
             extra.append(RiskFlag.WRONG_OBJECT_PART)
             return ClaimStatus.NOT_ENOUGH_INFORMATION, extra
 
-        # Rule 5: part visible AND damage visible AND claim-consistent → SUPPORTED
+        # Rule 5: part visible AND the claimed damage type is confirmed → SUPPORTED
+        # If supporting images exist but the visible issue DIFFERS from the
+        # claimed issue, that is a contradiction, not a support.
         if vision.issue_visible and vision.supporting_image_ids:
             claimed = parsed_claim.claimed_issue
             visible = vision.issue_type
@@ -441,7 +470,9 @@ class DecisionService:
                 and visible != IssueType.UNKNOWN
                 and claimed != visible
             ):
+                # Different damage type confirmed — this contradicts the claim
                 extra.append(RiskFlag.CLAIM_MISMATCH)
+                return ClaimStatus.CONTRADICTED, extra
             return ClaimStatus.SUPPORTED, extra
 
         # Rule 5b: issue visible but wrong type, no supporting IDs → CONTRADICTED

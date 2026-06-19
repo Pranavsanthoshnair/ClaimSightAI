@@ -466,10 +466,12 @@ def _aggregate(
             for a in valid_analyses
         )
     )
+    # issue_visible: True ONLY if the specifically claimed damage type is visible.
+    # Do NOT use `bool(all_visible_issues)` — that would make any damage count,
+    # allowing a bumper dent to satisfy a glass_broken claim.
     issue_visible = (
-        claimed_issue == IssueType.UNKNOWN
-        or claimed_issue in all_visible_issues
-        or bool(all_visible_issues)
+        claimed_issue == IssueType.UNKNOWN       # unknown claim → can't contradict
+        or claimed_issue in all_visible_issues   # claimed type actually confirmed
     )
 
     # Best-match issue and part from supporting images (prefer claimed values)
