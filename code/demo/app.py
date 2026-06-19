@@ -414,85 +414,90 @@ def run_pipeline(image_files: list, user_claim: str, claim_object: str) -> dict:
         img_names.append(f.name)
         img_bytes_map[f.name] = raw
 
-    # Stage A
     try:
-        obj = ClaimObject(claim_object)
-    except ValueError:
-        obj = ClaimObject.CAR
+        # Stage A
+        try:
+            obj = ClaimObject(claim_object)
+        except ValueError:
+            obj = ClaimObject.CAR
 
-    from agents.claim_agent import ClaimExtractionAgent
-    extr_data = _cached_claim_extraction(user_claim, claim_object)
-    # Reconstruct typed object from cached dict
-    from models.claim_extraction import ExtractedClaim
-    extraction = ExtractedClaim.model_validate(extr_data)
+        from agents.claim_agent import ClaimExtractionAgent
+        extr_data = _cached_claim_extraction(user_claim, claim_object)
+        from models.claim_extraction import ExtractedClaim
+        extraction = ExtractedClaim.model_validate(extr_data)
 
-    # Stage B
-    model_svc = ModelService(settings=settings) if settings.has_vision_model else None
-    vision_agent = VisionReviewAgent(model_service=model_svc)
+        # Stage B
+        model_svc = ModelService(settings=settings) if settings.has_vision_model else None
+        vision_agent = VisionReviewAgent(model_service=model_svc)
 
-    if tmp_paths:
-        vision_result = vision_agent.review(VisionReviewInput(
-            image_paths=tmp_paths,
-            claim_object=obj,
-            claimed_part=extraction.claimed_object_part,
-            claimed_issue=extraction.claimed_issue_type,
+        if tmp_paths:
+            vision_result = vision_agent.review(VisionReviewInput(
+                image_paths=tmp_paths,
+                claim_object=obj,
+                claimed_part=extraction.claimed_object_part,
+                claimed_issue=extraction.claimed_issue_type,
+                is_multi_part=extraction.is_multi_part,
+            ))
+        else:
+            from models.vision_review import VisionReviewResult
+            from models.enums import RiskFlag
+            vision_result = VisionReviewResult(
+                valid_image=False, quality_flags=[RiskFlag.MANUAL_REVIEW_REQUIRED],
+                reasoning="No images uploaded.",
+            )
+
+        # Stage C
+        evidence_engine = EvidenceStandardsEngine()
+        evidence_engine.load(_REPO_DIR / "dataset" / "evidence_requirements.csv")
+        evidence_result = evidence_engine.evaluate_from_vision(
+            vision_result=vision_result,
+            claim_object=str(obj),
+            claimed_part=str(extraction.claimed_object_part),
+            claimed_issue=str(extraction.claimed_issue_type),
             is_multi_part=extraction.is_multi_part,
-        ))
-    else:
-        from models.vision_review import VisionReviewResult
-        from models.enums import RiskFlag
-        vision_result = VisionReviewResult(
-            valid_image=False, quality_flags=[RiskFlag.MANUAL_REVIEW_REQUIRED],
-            reasoning="No images uploaded.",
         )
 
-    # Stage C
-    evidence_engine = EvidenceStandardsEngine()
-    evidence_engine.load(_REPO_DIR / "dataset" / "evidence_requirements.csv")
-    evidence_result = evidence_engine.evaluate_from_vision(
-        vision_result=vision_result,
-        claim_object=str(obj),
-        claimed_part=str(extraction.claimed_object_part),
-        claimed_issue=str(extraction.claimed_issue_type),
-        is_multi_part=extraction.is_multi_part,
-    )
+        # Stage D
+        decision_svc = DecisionService()
+        claim_input = ClaimInput(
+            user_id="demo_user",
+            image_paths=";".join(img_names) if img_names else "none",
+            user_claim=user_claim, claim_object=obj,
+        )
+        parsed = ParsedClaim(
+            claim_object=obj,
+            claimed_issue=extraction.claimed_issue_type,
+            claimed_part=extraction.claimed_object_part,
+            is_multi_part=extraction.is_multi_part,
+        )
+        output = decision_svc.decide(
+            claim=claim_input, parsed_claim=parsed,
+            vision=vision_result, evidence=evidence_result,
+        )
 
-    # Stage D
-    decision_svc = DecisionService()
-    claim_input = ClaimInput(
-        user_id="demo_user",
-        image_paths=";".join(img_names) if img_names else "none",
-        user_claim=user_claim, claim_object=obj,
-    )
-    parsed = ParsedClaim(
-        claim_object=obj,
-        claimed_issue=extraction.claimed_issue_type,
-        claimed_part=extraction.claimed_object_part,
-        is_multi_part=extraction.is_multi_part,
-    )
-    output = decision_svc.decide(
-        claim=claim_input, parsed_claim=parsed,
-        vision=vision_result, evidence=evidence_result,
-    )
+        provider = "No model"
+        if settings.has_vision_model:
+            provider = f"{settings.model_provider}/{settings.vision_model}"
 
-    # Cleanup
-    for p in tmp_paths:
-        try: p.unlink()
-        except OSError: pass
-
-    provider = "No model"
-    if settings.has_vision_model:
-        provider = f"{settings.model_provider}/{settings.vision_model}"
-
-    return dict(
-        extraction=extraction,
-        vision=vision_result,
-        evidence=evidence_result,
-        output=output,
-        has_model=settings.has_vision_model,
-        provider=provider,
-        img_bytes_map=img_bytes_map,
-    )
+        return dict(
+            extraction=extraction,
+            vision=vision_result,
+            evidence=evidence_result,
+            output=output,
+            has_model=settings.has_vision_model,
+            provider=provider,
+            img_bytes_map=img_bytes_map,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"Dataset file not found: {exc}") from exc
+    except ImportError as exc:
+        raise RuntimeError(f"Missing dependency: {exc}") from exc
+    except Exception as exc:
+        raise RuntimeError(str(exc)) from exc
+    finally:
+        for p in tmp_paths:
+            try: p.unlink()
+            except OSError: pass
 
 # ── AI Progress simulation ────────────────────────────────────────────────────
 

@@ -104,6 +104,22 @@ class ClaimReviewPipeline:
             )
             outputs.append(output)
 
+            # Log per-claim event for observability
+            self.logging_service.write_event("pipeline_events.jsonl", {
+                "event": "claim_processed",
+                "user_id": claim.user_id,
+                "claim_index": i,
+                "status": output.claim_status.value,
+                "evidence_met": output.evidence_standard_met,
+                "issue_type": output.issue_type.value,
+                "object_part": output.object_part.value,
+                "severity": output.severity.value,
+                "risk_flags": output.risk_flags,
+                "valid_image": output.valid_image,
+                "supporting_count": len(vision_result.supporting_image_ids),
+                "confidence": vision_result.confidence,
+            })
+
         self.csv_service.write_outputs(resolved_output, outputs)
         logger.info("Wrote %d rows to %s", len(outputs), resolved_output)
 
