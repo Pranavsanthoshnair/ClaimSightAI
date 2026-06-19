@@ -843,19 +843,27 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
-    # Probe button + cached results
-    do_probe = st.button("⟳  Check Status", use_container_width=True)
+    # Probe button — only probe when explicitly requested
+    do_probe = st.button("⟳  Check Model Status", use_container_width=True)
     if do_probe:
-        _probe_models.clear()   # bust cache on manual refresh
+        _probe_models.clear()  # bust cache
 
     probe_results: dict = {}
     _primary_key = _key_pool_side[0] if _key_pool_side else ""
     _backup_keys = ",".join(_key_pool_side[1:]) if len(_key_pool_side) > 1 else ""
-    if _primary_key:
-        with st.spinner(f"Probing models across {_pool_count} key(s)…"):
-            probe_results = _probe_models(_primary_key, _backup_keys)
-    else:
+
+    # Only probe if button clicked AND key available — never auto-probe on load
+    if do_probe and _primary_key:
+        with st.spinner("Checking models…"):
+            try:
+                probe_results = _probe_models(_primary_key, _backup_keys)
+            except Exception:
+                probe_results = {m[0]: "error:probe_failed" for m in _ALL_MODELS}
+    elif not _primary_key:
         probe_results = {m[0]: "no_key" for m in _ALL_MODELS}
+    else:
+        # Not yet probed — show neutral state
+        probe_results = {m[0]: "pending" for m in _ALL_MODELS}
 
     # Render rows
     any_ok = False
