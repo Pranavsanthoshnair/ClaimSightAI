@@ -1,0 +1,213 @@
+{
+  "pass_rate": 100.0,
+  "passed": 10,
+  "total": 10,
+  "avg_latency_s": 0.1,
+  "fallback_count": 0,
+  "results": [
+    {
+      "id": "TC01_dented_car",
+      "description": "Dented car \u2014 rear bumper with visible dent",
+      "image_path": "dataset\\images\\sample\\case_001\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.51,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC02_scratched_car_bumper",
+      "description": "Car with front bumper scratch \u2014 supported",
+      "image_path": "dataset\\images\\sample\\case_002\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.0,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC03_cracked_windshield",
+      "description": "Cracked windshield \u2014 clear crack lines visible",
+      "image_path": "dataset\\images\\sample\\case_003\\img_2.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.17,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [
+        "blurry_image"
+      ],
+      "error": null
+    },
+    {
+      "id": "TC04_wrong_angle_car",
+      "description": "Car but wrong angle \u2014 headlight not visible (partial visibility)",
+      "image_path": "dataset\\images\\sample\\case_006\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.02,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC05_blurry_evidence",
+      "description": "Blurry door image \u2014 evidence quality issue",
+      "image_path": "dataset\\images\\sample\\case_007\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.21,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [
+        "blurry_image"
+      ],
+      "error": null
+    },
+    {
+      "id": "TC06_cracked_laptop_screen",
+      "description": "Cracked laptop screen \u2014 supported",
+      "image_path": "dataset\\images\\sample\\case_009\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.05,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC07_laptop_no_visible_damage",
+      "description": "Laptop trackpad \u2014 no physical damage visible (contradicted)",
+      "image_path": "dataset\\images\\sample\\case_014\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.05,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC08_torn_package",
+      "description": "Torn package seal \u2014 supported",
+      "image_path": "dataset\\images\\sample\\case_016\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.01,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC09_wrong_object",
+      "description": "Wrong object in image \u2014 not a shipping box",
+      "image_path": "dataset\\images\\sample\\case_019\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.01,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    },
+    {
+      "id": "TC10_multiple_damages",
+      "description": "Laptop hinge + screen \u2014 multiple damage types",
+      "image_path": "dataset\\images\\sample\\case_010\\img_1.jpg",
+      "passes": [
+        "image_readable",
+        "pipeline_completed_without_error"
+      ],
+      "failures": [],
+      "provider_used": "none",
+      "fallback_used": false,
+      "latency_s": 0.01,
+      "confidence": 0.0,
+      "claim_status": "not_enough_information",
+      "object_present": null,
+      "visible_parts": [],
+      "visible_issues": [],
+      "quality_flags": [],
+      "error": null
+    }
+  ]
+}

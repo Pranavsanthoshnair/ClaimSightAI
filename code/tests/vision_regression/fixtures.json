@@ -1,0 +1,182 @@
+[
+  {
+    "id": "TC01_dented_car",
+    "description": "Dented car — rear bumper with visible dent",
+    "image_path": "dataset/images/sample/case_001/img_1.jpg",
+    "claim_object": "car",
+    "claimed_part": "rear_bumper",
+    "claimed_issue": "dent",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.5,
+      "supports_claim": true,
+      "visible_parts_contains": ["rear_bumper"],
+      "visible_issues_contains": ["dent"],
+      "claim_status": "supported"
+    }
+  },
+  {
+    "id": "TC02_scratched_car_bumper",
+    "description": "Car with front bumper scratch — supported",
+    "image_path": "dataset/images/sample/case_002/img_1.jpg",
+    "claim_object": "car",
+    "claimed_part": "front_bumper",
+    "claimed_issue": "scratch",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.4,
+      "supports_claim": true,
+      "visible_parts_contains": ["front_bumper"],
+      "visible_issues_contains": ["scratch"],
+      "claim_status": "supported"
+    }
+  },
+  {
+    "id": "TC03_cracked_windshield",
+    "description": "Cracked windshield — clear crack lines visible",
+    "image_path": "dataset/images/sample/case_003/img_2.jpg",
+    "claim_object": "car",
+    "claimed_part": "windshield",
+    "claimed_issue": "crack",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.5,
+      "supports_claim": true,
+      "visible_parts_contains": ["windshield"],
+      "visible_issues_contains": ["crack"],
+      "claim_status": "supported"
+    }
+  },
+  {
+    "id": "TC04_wrong_angle_car",
+    "description": "Car but wrong angle — headlight not visible (partial visibility)",
+    "image_path": "dataset/images/sample/case_006/img_1.jpg",
+    "claim_object": "car",
+    "claimed_part": "headlight",
+    "claimed_issue": "crack",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "supports_claim": false,
+      "confidence_min": 0.0,
+      "visible_parts_contains": [],
+      "visible_issues_contains": [],
+      "claim_status": "not_enough_information",
+      "quality_flags_contains_any": ["wrong_angle", "damage_not_visible", "wrong_object_part"]
+    }
+  },
+  {
+    "id": "TC05_blurry_evidence",
+    "description": "Blurry door image — evidence quality issue",
+    "image_path": "dataset/images/sample/case_007/img_1.jpg",
+    "claim_object": "car",
+    "claimed_part": "door",
+    "claimed_issue": "dent",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "supports_claim": false,
+      "confidence_min": 0.0,
+      "visible_parts_contains": [],
+      "visible_issues_contains": [],
+      "claim_status": "not_enough_information",
+      "quality_flags_contains_any": ["blurry_image", "cropped_or_obstructed", "damage_not_visible"]
+    }
+  },
+  {
+    "id": "TC06_cracked_laptop_screen",
+    "description": "Cracked laptop screen — supported",
+    "image_path": "dataset/images/sample/case_009/img_1.jpg",
+    "claim_object": "laptop",
+    "claimed_part": "screen",
+    "claimed_issue": "crack",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.5,
+      "supports_claim": true,
+      "visible_parts_contains": ["screen"],
+      "visible_issues_contains": ["crack"],
+      "claim_status": "supported"
+    }
+  },
+  {
+    "id": "TC07_laptop_no_visible_damage",
+    "description": "Laptop trackpad — no physical damage visible (contradicted)",
+    "image_path": "dataset/images/sample/case_014/img_1.jpg",
+    "claim_object": "laptop",
+    "claimed_part": "trackpad",
+    "claimed_issue": "crack",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "supports_claim": false,
+      "confidence_min": 0.3,
+      "visible_parts_contains": ["trackpad"],
+      "visible_issues_contains": [],
+      "claim_status": "contradicted",
+      "quality_flags_contains_any": ["damage_not_visible"]
+    }
+  },
+  {
+    "id": "TC08_torn_package",
+    "description": "Torn package seal — supported",
+    "image_path": "dataset/images/sample/case_016/img_1.jpg",
+    "claim_object": "package",
+    "claimed_part": "seal",
+    "claimed_issue": "torn_packaging",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.4,
+      "supports_claim": true,
+      "visible_parts_contains": ["seal"],
+      "visible_issues_contains": ["torn_packaging"],
+      "claim_status": "supported"
+    }
+  },
+  {
+    "id": "TC09_wrong_object",
+    "description": "Wrong object in image — not a shipping box",
+    "image_path": "dataset/images/sample/case_019/img_1.jpg",
+    "claim_object": "package",
+    "claimed_part": "box",
+    "claimed_issue": "crushed_packaging",
+    "expected": {
+      "object_present": false,
+      "object_visible": false,
+      "supports_claim": false,
+      "confidence_min": 0.0,
+      "visible_parts_contains": [],
+      "visible_issues_contains": [],
+      "claim_status": "contradicted",
+      "quality_flags_contains_any": ["wrong_object", "claim_mismatch"]
+    }
+  },
+  {
+    "id": "TC10_multiple_damages",
+    "description": "Laptop hinge + screen — multiple damage types",
+    "image_path": "dataset/images/sample/case_010/img_1.jpg",
+    "claim_object": "laptop",
+    "claimed_part": "hinge",
+    "claimed_issue": "broken_part",
+    "expected": {
+      "object_present": true,
+      "object_visible": true,
+      "issue_visible": true,
+      "confidence_min": 0.4,
+      "supports_claim": true,
+      "visible_parts_contains": ["hinge"],
+      "visible_issues_contains": ["broken_part"],
+      "claim_status": "supported"
+    }
+  }
+]
