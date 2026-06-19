@@ -626,13 +626,15 @@ try:
 except Exception:
     _Cfg = None
 
-# All known OpenRouter vision models the system can use
+# All models the system can use — confirmed working first
 _ALL_MODELS = [
-    ("qwen/qwen2.5-vl-72b-instruct",            "Qwen 2.5 VL 72B",    "T1 (primary)"),
-    ("meta-llama/llama-3.2-11b-vision-instruct", "Llama 3.2 11B Vision","T2"),
-    ("anthropic/claude-3-haiku",                 "Claude 3 Haiku",      "T3"),
-    ("openai/gpt-4o-mini",                       "GPT-4o Mini",         "optional"),
-    ("openai/gpt-4o",                            "GPT-4o",              "optional"),
+    ("meta-llama/llama-3.2-11b-vision-instruct",  "Llama 3.2 11B Vision", "T1 · active"),
+    ("anthropic/claude-3-haiku",                   "Claude 3 Haiku",        "T2 · active"),
+    ("qwen/qwen2.5-vl-72b-instruct",               "Qwen 2.5 VL 72B",       "T3 · active"),
+    ("openai/gpt-4o-mini",                         "GPT-4o Mini",           "optional"),
+    ("openai/gpt-4o",                              "GPT-4o",                "optional"),
+    ("google/gemma-4-26b-a4b-it:free",             "Gemma 4 26B",           "free tier"),
+    ("nvidia/nemotron-nano-12b-v2-vl:free",        "Nemotron VL 12B",       "free tier"),
 ]
 
 @st.cache_data(show_spinner=False, ttl=300)   # cache 5 min
@@ -828,7 +830,7 @@ with st.sidebar:
     st.markdown('<div class="ms-divider"></div>', unsafe_allow_html=True)
 
     # Overall system status pill
-    if not _api_key_side:
+    if not _key_pool_side:
         st.markdown(
             '<span class="chip chip-amber" style="width:100%;justify-content:center">● PREFLIGHT MODE</span>',
             unsafe_allow_html=True,
