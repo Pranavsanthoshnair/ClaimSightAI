@@ -365,8 +365,13 @@ textarea:focus { border-color: #6366F1 !important; box-shadow: 0 0 0 3px rgba(99
 def topbar():
     st.markdown("""
     <div class="cs-topbar">
-      <div class="cs-logo">
-        <div class="cs-logo-icon">CS</div>
+      <div class="cs-logo" title="Click to open/close sidebar">
+        <div class="cs-logo-icon" id="cs-sidebar-toggle"
+             style="cursor:pointer;transition:box-shadow 0.2s;"
+             onmouseenter="this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.4)'"
+             onmouseleave="this.style.boxShadow='none'">
+             CS
+        </div>
         <span class="cs-logo-text">Claim<span>Sight</span> AI</span>
       </div>
       <span class="cs-badge">BETA · v1.0</span>
@@ -670,6 +675,34 @@ def show_progress(placeholder, provider: str = ""):
 # ── Main layout ───────────────────────────────────────────────────────────────
 
 topbar()
+
+# ── Sidebar toggle via CS logo click ─────────────────────────────────────────
+import streamlit.components.v1 as _components
+_components.html("""
+<script>
+(function() {
+  function attachToggle() {
+    // Find our logo icon in the parent Streamlit frame
+    var logo = window.parent.document.getElementById('cs-sidebar-toggle');
+    if (!logo) { setTimeout(attachToggle, 300); return; }
+    logo.addEventListener('click', function() {
+      // Try sidebar collapse button (sidebar is open)
+      var btn = window.parent.document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+      // Fall back to expand button (sidebar is closed)
+      if (!btn) btn = window.parent.document.querySelector('[data-testid="collapsedControl"] button');
+      if (btn) btn.click();
+    });
+  }
+  // Run after parent DOM is ready
+  if (window.parent.document.readyState === 'complete') {
+    attachToggle();
+  } else {
+    window.parent.addEventListener('load', attachToggle);
+    setTimeout(attachToggle, 500);
+  }
+})();
+</script>
+""", height=0)
 
 # ── Pre-init session state (must happen before sidebar renders) ──────────────
 if "debug_mode" not in st.session_state:
