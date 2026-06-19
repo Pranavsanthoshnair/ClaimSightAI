@@ -145,6 +145,11 @@ class GeminiProvider(BaseVisionProvider):
                     "Gemini attempt %d/%d failed: %s",
                     attempt + 1, self._max_retries + 1, exc_str[:120],
                 )
+                # On 429 quota exhaustion, raise immediately so ModelService
+                # can fall back to OpenRouter without wasting time retrying.
+                if "429" in exc_str and "quota" in exc_str.lower():
+                    raise RuntimeError(f"429 quota exhausted: {exc_str[:200]}") from exc
+
                 if attempt < self._max_retries:
                     retry_after = _FREE_TIER_DELAY
                     m = re.search(r"retry in (\d+)", exc_str, re.IGNORECASE)

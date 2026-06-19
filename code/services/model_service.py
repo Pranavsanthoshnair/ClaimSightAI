@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 _MAX_DIM = 1536
 
 # Error substrings that trigger fallback
-_FALLBACK_TRIGGERS = ("429", "503", "timeout", "timed out", "exhausted")
+_FALLBACK_TRIGGERS = ("429", "503", "timeout", "timed out", "exhausted", "quota")
 
 
 def _resize_image(image_bytes: bytes, max_dim: int = _MAX_DIM) -> bytes:
