@@ -1,26 +1,54 @@
 """
 ClaimSight AI — Production-Grade Evidence Review Platform
-Run: streamlit run code/demo/app.py
+Run locally:        streamlit run code/demo/app.py
+Deploy on Cloud:    Set Main file path = code/demo/app.py
+                    Add GEMINI_API_KEY in Streamlit Cloud → Settings → Secrets
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import io
+import os
 import sys
 import tempfile
 import time
 from pathlib import Path
 
-_CODE_DIR = Path(__file__).resolve().parent.parent
-_REPO_DIR = _CODE_DIR.parent
+# ── Path bootstrap — works locally AND on Streamlit Cloud ───────────────────
+# On Cloud: repo root is /mount/src/<repo-name> or similar; __file__ resolves
+# correctly so we navigate up from code/demo/app.py → code/ → repo root.
+_THIS_FILE  = Path(__file__).resolve()
+_CODE_DIR   = _THIS_FILE.parent.parent          # …/code/
+_REPO_DIR   = _CODE_DIR.parent                  # …/repo-root/
+
 if str(_CODE_DIR) not in sys.path:
     sys.path.insert(0, str(_CODE_DIR))
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(_REPO_DIR / ".env")
-except ImportError:
-    pass
+# ── Secrets: st.secrets (Cloud) with .env fallback (local) ──────────────────
+def _inject_secrets() -> None:
+    """Push Streamlit secrets into os.environ so Settings() picks them up."""
+    try:
+        import streamlit as _st
+        for key in ("GEMINI_API_KEY", "MODEL_PROVIDER", "VISION_MODEL",
+                    "OPENROUTER_API_KEY", "OPENROUTER_MODEL",
+                    "OPENROUTER_MODEL_TIER2", "OPENROUTER_MODEL_TIER3"):
+            try:
+                val = _st.secrets.get(key)
+                if val and not os.environ.get(key):
+                    os.environ[key] = str(val)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Also try .env for local dev
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(_REPO_DIR / ".env")
+    except ImportError:
+        pass
+
+_inject_secrets()
 
 import streamlit as st
 
